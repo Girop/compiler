@@ -1,0 +1,10 @@
+---
+BasedOnStyle: GNU
+AccessModifierOffset: -4
+AllowShortIfStatementsOnASingleLine: WithoutElse
+FixNamespaceComments: true
+IndentWidth: 4
+PointerAlignment: Left
+AlwaysBreakAfterReturnType: None
+AlwaysBreakAfterDefinitionReturnType: None
+SpaceBeforeParens: Never

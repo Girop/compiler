@@ -1,0 +1,36 @@
+{
+    "version": 1,
+    "cmakeMinimumRequired": {
+        "major": 3,
+        "minor": 28,
+        "patch": 0
+    },
+    "configurePresets": [
+        {
+            "name": "generic",
+            "hidden": true,
+            "generator": "Ninja",
+            "binaryDir": "${sourceDir}/build",
+            "cacheVariables": {
+                "CMAKE_CXX_FLAGS": "-Og -ggdb3 -Wall -Wextra -Wfloat-equal -Wshadow -Wstrict-overflow=5 -Wconversion -Werror -Wsuggest-override"
+            }
+        },
+        {
+            "name": "gcc",
+            "inherits": "generic",
+            "cacheVariables": {
+                "CMAKE_C_COMPILER": "gcc",
+                "CMAKE_CXX_COMPILER": "g++"
+            }
+        },
+        {
+            "name": "clang",
+            "inherits": "generic",
+            "cacheVariables": {
+                "CMAKE_CXX_SCAN_FOR_MODULES": "OFF",
+                "CMAKE_C_COMPILER": "clang",
+                "CMAKE_CXX_COMPILER": "clang++"
+            }
+        }
+    ]
+}
