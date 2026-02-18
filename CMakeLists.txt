@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.28)
-project(project_name)
+project(c_compiler)
 
-set(MAIN_EXECUTABLE_NAME "MyProgram")
+set(MAIN_EXECUTABLE_NAME "compiler")
 set(MAIN_LIB_NAME "${MAIN_EXECUTABLE_NAME}_lib")
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS "ON")

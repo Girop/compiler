@@ -3,19 +3,31 @@
 namespace compiler
 {
 
-void Sema::add(ast::FunctionDecl const&)
-{
-
-}
-
-void Sema::push()
-{
+void Sema::add(ast::FunctionDecl const&) 
+{ 
     
 }
 
-void Sema::pop()
+void Sema::add(ast::ObjDecl const& obj)
 {
-    
+    obj.type();
+    obj.iden();
+
+    if (obj.init() != nullptr)
+    {
+        // TODO        
+    }
 }
 
+
+void Sema::push() 
+{
+
 }
+
+void Sema::pop() 
+{
+
+}
+
+} // namespace compiler

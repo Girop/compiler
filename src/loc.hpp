@@ -1,21 +1,61 @@
 #pragma once
 #include <cstddef>
-#include <ostream>
+#include <iostream>
 
 namespace compiler
 {
 
 class Loc
 {
-// TODO: struct Wrn / Err pattern
-public:
-    Loc(size_t col, size_t row) : column_(col), row_(row) {}
 
-    friend std::ostream& operator<<(std::ostream&, Loc const& loc);
+    template <typename Self> class Diagnostic
+    {
+    public:
+        explicit Diagnostic(Loc const& loc) :
+            loc_{ loc }
+        {
+        }
+
+        template <typename T> std::ostream& operator<<(T&& message)
+        {
+            constexpr auto diag_type{ static_cast<Self&>(*this).type() };
+            return std::cerr << diag_type << loc_.format() << message << '\n';
+        }
+
+    private:
+        Loc const& loc_;
+    };
+
+    class Wrn : public Diagnostic<Wrn>
+    {
+        using Diagnostic::Diagnostic;
+        constexpr std::string_view type() const { return "Warning:"; }
+    };
+
+    class Err : public Diagnostic<Wrn>
+    {
+        using Diagnostic::Diagnostic;
+        constexpr std::string_view type() const { return "Error:"; }
+    };
+
+public:
+    Loc(std::string_view filename, size_t row, size_t col) :
+        filename_{ filename },
+        row_{ row },
+        column_{ col }
+    {
+    }
+
+    std::string format() const;
+    Err err() const { return Err{ *this }; }
+    Wrn wrn() const { return Wrn{ *this }; }
+
+    void advance(char c);
 
 private:
-    size_t column_;
+    std::string_view filename_;
     size_t row_;
+    size_t column_;
 };
 
 } // namespace compiler

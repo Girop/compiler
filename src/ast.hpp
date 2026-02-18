@@ -28,7 +28,24 @@ private:
     Loc loc_;
 };
 
-struct Type;
+class Type
+{
+public:
+    enum class Size
+    {
+        Void,
+        Bool,
+        Int,
+    };
+
+    explicit Type(Size size) :
+        size_{ size }
+    {
+    }
+
+private:
+    Size size_;
+};
 
 class Expr : public Node
 {
@@ -102,6 +119,8 @@ public:
 
     const Type* check(Sema&) const override;
 
+    std::string_view name() const { return name_; }
+
 private:
     std::string name_;
 };
@@ -121,7 +140,7 @@ public:
     {
     }
 
-    virtual Type const* check(Sema&) const = 0;
+    Type const* check(Sema&) const override;
 
 private:
     Op op_;
@@ -136,6 +155,8 @@ public:
         expr_{ std::move(expr) }
     {
     }
+
+    void check(Sema&) const override;
 
 private:
     Ptr<Expr> expr_;
@@ -173,42 +194,70 @@ private:
     Ptr<Stmt> alt_;
 };
 
-class ObjDecl : public Node
+class Declaration : public Node
+{
+public:
+    using Node::Node;
+
+    virtual void add(Sema&) const = 0;
+};
+
+class ObjDecl : public Declaration
 {
 public:
     ObjDecl(Loc loc, Type const* type, Ptr<Iden>&& iden, Ptr<Expr>&& init) :
-        Node(loc),
+        Declaration(loc),
         type_{ type },
         iden_{ std::move(iden) },
         init_{ std::move(init) }
     {
     }
 
-    void add(Sema&) const;
+    void add(Sema&) const override;
+
+    Type const& type() const { return *type_; }
+    Iden const& iden() const { return *iden_; }
+    Expr const* init() const { return init_.get(); }
+
 private:
     Type const* type_;
     Ptr<Iden> iden_;
     Ptr<Expr> init_;
 };
 
-class FunctionDecl : public Node
+class FunctionDecl : public Declaration
 {
 public:
     FunctionDecl(Loc loc, Type const* type, Ptr<Iden>&& iden,
                  std::vector<Ptr<ObjDecl>>&& args, Ptr<CmpndStmt>&& body) :
-        Node(loc),
-        return_t_{ type },
+        Declaration(loc),
+        return_{ type },
         iden_{ std::move(iden) },
         args_{ std::move(args) },
         body_{ std::move(body) }
     {
     }
 
+    void add(Sema&) const override;
+
 private:
-    Type const* return_t_;
+    Type const* return_;
     Ptr<Iden> iden_;
     std::vector<Ptr<ObjDecl>> args_;
     Ptr<CmpndStmt>&& body_;
+};
+
+class TranslationUnit : public Node
+{
+public:
+    explicit TranslationUnit(Loc loc, std::vector<Ptr<Declaration>>&& decls) :
+        Node(loc),
+        decls_{ std::move(decls) }
+    {
+    }
+
+private:
+    std::vector<Ptr<Declaration>> decls_;
 };
 
 } // namespace compiler::ast
