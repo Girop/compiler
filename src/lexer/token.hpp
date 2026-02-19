@@ -117,6 +117,9 @@ struct Token
     Tag tag;
     Value value;
     Loc loc;
+
+    std::string format() const;
+    std::string specific_format() const;
 };
 
 } // namespace compiler::tokens

@@ -39,6 +39,10 @@ class Loc
     };
 
 public:
+    explicit Loc(std::string_view filename) :
+        filename_{ filename }
+    {
+    }
     Loc(std::string_view filename, size_t row, size_t col) :
         filename_{ filename },
         row_{ row },
@@ -54,8 +58,8 @@ public:
 
 private:
     std::string_view filename_;
-    size_t row_;
-    size_t column_;
+    size_t row_{ 1 };
+    size_t column_{ 1 };
 };
 
 } // namespace compiler

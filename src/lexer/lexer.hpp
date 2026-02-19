@@ -9,16 +9,27 @@ namespace compiler
 
 class Lexer
 {
-    struct BufferedPeek
+    struct FilePos 
     {
         Loc loc;
         size_t index;
+
+        void advance(char c)
+        {
+            loc.advance(c);
+            ++index;
+        }
+    };
+
+    struct BufferedPeek
+    {
+        FilePos pos;
         tokens::Token token;
     };
 
 public:
     explicit Lexer(std::string_view filename, std::string_view fc) :
-        loc_{ filename, 0, 0 },
+        position_{ Loc{filename} , 0},
         file_content_{ fc }
     {
     }
@@ -26,18 +37,25 @@ public:
     tokens::Token peek() const;
     tokens::Token advance();
 
-    Loc const& location() const { return loc_; }
-
 private:
     BufferedPeek peek_with_offset() const;
-    tokens::Token create(size_t starting, size_t current, DFMAState state) const;
-    bool is_eof() const { return index_ >= file_content_.size(); }
+    tokens::Token create(FilePos const& starting_pos, size_t current, DFMAState state) const;
+    bool is_eof(FilePos const& pos) const
+    {
+        return pos.index >= file_content_.size();
+    }
+
+    FilePos skip_whitespace() const;
+
+    char peek_char(FilePos const& fp) const
+    {
+        return file_content_.at(fp.index);
+    }
 
     static constexpr DFMATable table{};
 
     mutable std::optional<BufferedPeek> buffered_;
-    Loc loc_;
-    size_t index_{ 0 };
+    FilePos position_ ;
     std::string_view file_content_;
 };
 

@@ -148,8 +148,10 @@ public:
 private:
     consteval void fill_whitespace()
     {
-        fill(DFMAState::Initial, {' ', '\t', '\n', '\v', '\f', '\r'}, DFMAState::Whitespace);
-        fill(DFMAState::Whitespace, {' ', '\t', '\n', '\v', '\f', '\r'}, DFMAState::Whitespace);
+        fill(DFMAState::Initial, { ' ', '\t', '\n', '\v', '\f', '\r' },
+             DFMAState::Whitespace);
+        fill(DFMAState::Whitespace, { ' ', '\t', '\n', '\v', '\f', '\r' },
+             DFMAState::Whitespace);
     }
 
     consteval void fill_constants()
