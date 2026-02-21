@@ -59,7 +59,7 @@ Lexer::FilePos Lexer::skip_whitespace() const
     DFMAState state{ DFMAState::Initial };
     while(true)
         {
-            if (is_eof(new_pos)) break;
+            if(is_eof(new_pos)) break;
             char c{ peek_char(new_pos) };
             state = table(state, c);
             if(state != DFMAState::Whitespace) break;
@@ -122,7 +122,8 @@ Token Lexer::advance()
 tokens::Token Lexer::create(FilePos const& start, size_t current,
                             DFMAState state) const
 {
-    auto const lexem = file_content_.substr(start.index, current - start.index);
+    auto const lexem
+        = file_content_.substr(start.index, current - start.index);
     switch(state)
         {
         case DFMAState::Identifier:
@@ -191,8 +192,7 @@ tokens::Token Lexer::create(FilePos const& start, size_t current,
         case DFMAState::PipeEqual:
             {
                 return Token{ tokens::Tag::Punctuator,
-                              tokens::Punctuator{
-                                  complier::to_underlying(state) },
+                              tokens::Punctuator{ to_underlying(state) },
                               start.loc };
             }
         case DFMAState::Initial:

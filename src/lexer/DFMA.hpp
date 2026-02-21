@@ -2,7 +2,7 @@
 #include "utils.hpp"
 #include <array>
 #include <cstdint>
-#include <numeric>
+#include <limits>
 
 namespace compiler
 {
@@ -129,7 +129,7 @@ class DFMATable
 {
     using Storage
         = std::array<std::array<DFMAState, std::numeric_limits<char>::max()>,
-                     complier::to_underlying(DFMAState::_Count)>;
+                     to_underlying(DFMAState::_Count)>;
 
 public:
     consteval DFMATable()
@@ -142,7 +142,7 @@ public:
 
     constexpr DFMAState operator()(DFMAState state, char c) const
     {
-        return storage_.at(complier::to_underlying(state)).at(c);
+        return storage_.at(to_underlying(state)).at(c);
     }
 
 private:
@@ -250,7 +250,7 @@ private:
 
     consteval void fill(DFMAState state, char c, DFMAState value)
     {
-        storage_.at(complier::to_underlying(state)).at(c) = value;
+        storage_.at(to_underlying(state)).at(c) = value;
     }
 
     consteval void fill(DFMAState state, std::initializer_list<char> elements,
@@ -264,7 +264,7 @@ private:
     {
         for(char c = from; c < to; ++c)
             {
-                storage_.at(complier::to_underlying(state)).at(c) = value;
+                storage_.at(to_underlying(state)).at(c) = value;
             }
     }
 

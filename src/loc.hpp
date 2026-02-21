@@ -18,8 +18,8 @@ class Loc
 
         template <typename T> std::ostream& operator<<(T&& message)
         {
-            constexpr auto diag_type{ static_cast<Self&>(*this).type() };
-            return std::cerr << diag_type << loc_.format() << message << '\n';
+            return std::cerr << static_cast<Self*>(this)->type()
+                             << loc_.format() << message << '\n';
         }
 
     private:
@@ -28,12 +28,14 @@ class Loc
 
     class Wrn : public Diagnostic<Wrn>
     {
+        friend Diagnostic;
         using Diagnostic::Diagnostic;
         constexpr std::string_view type() const { return "Warning:"; }
     };
 
-    class Err : public Diagnostic<Wrn>
+    class Err : public Diagnostic<Err>
     {
+        friend Diagnostic;
         using Diagnostic::Diagnostic;
         constexpr std::string_view type() const { return "Error:"; }
     };
@@ -50,7 +52,9 @@ public:
     {
     }
 
+    std::string_view filename() const { return filename_; }
     std::string format() const;
+
     Err err() const { return Err{ *this }; }
     Wrn wrn() const { return Wrn{ *this }; }
 

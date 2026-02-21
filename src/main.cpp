@@ -1,15 +1,8 @@
-#include "file.hpp"
-#include "lexer/lexer.hpp"
+#include "driver.hpp"
 
-struct Flags
+compiler::Flags parse(int argc, char** argv)
 {
-    std::string filename;
-    bool lex{false};
-};
-
-Flags parse(int argc, char** argv)
-{
-    Flags flags;
+    compiler::Flags flags;
     for (int i = 1; i < argc; ++i)
     {
         std::string_view arg {argv[i]};
@@ -23,6 +16,11 @@ Flags parse(int argc, char** argv)
             flags.lex = true;
             continue;
         }
+        if (arg == "--parse")
+        {
+            flags.parse = true;
+            continue;
+        }
     }
     return flags;
 }
@@ -30,14 +28,13 @@ Flags parse(int argc, char** argv)
 int main(int argc, char* argv[])
 { 
     auto const flags = parse(argc, argv);
-    compiler::File file {flags.filename};
-    compiler::Lexer lex {file.name, file.content};
-    if (flags.lex) 
-    {
-        for (auto tok = lex.advance(); tok.tag != compiler::tokens::Tag::EoF; tok = lex.advance())
-        {
-            std::cout << tok.specific_format() << '\n';
-        }
 
+    if (flags.filename.empty())
+    {
+        std::cerr << "No file provided\n";
+        exit(1);
     }
+ 
+    compiler::Driver driver {flags};
+    driver.compile();
 }

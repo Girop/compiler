@@ -8,15 +8,15 @@ void Sema::add(ast::FunctionDecl const&)
     
 }
 
-void Sema::add(ast::ObjDecl const& obj)
+void Sema::add(ast::ObjDecl const&)
 {
-    obj.type();
-    obj.iden();
-
-    if (obj.init() != nullptr)
-    {
-        // TODO        
-    }
+    // obj.type();
+    // obj.iden();
+    //
+    // if (obj.init() != nullptr)
+    // {
+    //     // TODO        
+    // }
 }
 
 

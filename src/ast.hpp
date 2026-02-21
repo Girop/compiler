@@ -1,6 +1,7 @@
 #pragma once
 #include "loc.hpp"
 #include "sema.fwd.hpp"
+#include "type.fwd.hpp"
 #include <iostream>
 #include <memory>
 #include <vector>
@@ -28,34 +29,14 @@ private:
     Loc loc_;
 };
 
-class Type
-{
-public:
-    enum class Size
-    {
-        Void,
-        Bool,
-        Int,
-    };
-
-    explicit Type(Size size) :
-        size_{ size }
-    {
-    }
-
-private:
-    Size size_;
-};
-
 class Expr : public Node
 {
 public:
     using Node::Node;
-
     virtual Type const* check(Sema&) const = 0;
 
 protected:
-    Type const* type = nullptr;
+    // Type const* type = nullptr;
 };
 
 class Stmt : public Node
@@ -118,8 +99,7 @@ public:
     }
 
     const Type* check(Sema&) const override;
-
-    std::string_view name() const { return name_; }
+    std::ostream& stream(std::ostream&) const override;
 
 private:
     std::string name_;
@@ -162,14 +142,17 @@ private:
     Ptr<Expr> expr_;
 };
 
-class CmpndStmt : public Stmt
+class CompoundStmt : public Stmt
 {
 public:
-    explicit CmpndStmt(Loc loc, std::vector<Ptr<Stmt>>&& stmts) :
+    explicit CompoundStmt(Loc loc, std::vector<Ptr<Stmt>>&& stmts) :
         Stmt(loc),
         stmts_{ std::move(stmts) }
     {
     }
+
+    std::ostream& stream(std::ostream& os) const override;
+    void check(Sema&) const override;
 
 private:
     std::vector<Ptr<Stmt>> stmts_;
@@ -198,29 +181,25 @@ class Declaration : public Node
 {
 public:
     using Node::Node;
-
     virtual void add(Sema&) const = 0;
 };
 
 class ObjDecl : public Declaration
 {
 public:
-    ObjDecl(Loc loc, Type const* type, Ptr<Iden>&& iden, Ptr<Expr>&& init) :
+    ObjDecl(Loc loc, Ptr<Type>&& type, Ptr<Iden>&& iden, Ptr<Expr>&& init) :
         Declaration(loc),
-        type_{ type },
+        type_{ std::move(type) },
         iden_{ std::move(iden) },
         init_{ std::move(init) }
     {
     }
 
+    std::ostream& stream(std::ostream&) const override;
     void add(Sema&) const override;
 
-    Type const& type() const { return *type_; }
-    Iden const& iden() const { return *iden_; }
-    Expr const* init() const { return init_.get(); }
-
 private:
-    Type const* type_;
+    Ptr<Type> type_;
     Ptr<Iden> iden_;
     Ptr<Expr> init_;
 };
@@ -228,10 +207,10 @@ private:
 class FunctionDecl : public Declaration
 {
 public:
-    FunctionDecl(Loc loc, Type const* type, Ptr<Iden>&& iden,
-                 std::vector<Ptr<ObjDecl>>&& args, Ptr<CmpndStmt>&& body) :
+    FunctionDecl(Loc loc, Ptr<Type>&& type, Ptr<Iden>&& iden,
+                 std::vector<Ptr<ObjDecl>>&& args, Ptr<CompoundStmt>&& body) :
         Declaration(loc),
-        return_{ type },
+        return_{ std::move(type) },
         iden_{ std::move(iden) },
         args_{ std::move(args) },
         body_{ std::move(body) }
@@ -239,22 +218,26 @@ public:
     }
 
     void add(Sema&) const override;
+    std::ostream& stream(std::ostream& os) const override;
 
 private:
-    Type const* return_;
+    Ptr<Type> return_;
     Ptr<Iden> iden_;
     std::vector<Ptr<ObjDecl>> args_;
-    Ptr<CmpndStmt>&& body_;
+    Ptr<CompoundStmt>&& body_;
 };
 
 class TranslationUnit : public Node
 {
 public:
-    explicit TranslationUnit(Loc loc, std::vector<Ptr<Declaration>>&& decls) :
-        Node(loc),
+    TranslationUnit(std::string_view filename,
+                    std::vector<Ptr<Declaration>>&& decls) :
+        Node(Loc{ filename }),
         decls_{ std::move(decls) }
     {
     }
+
+    std::ostream& stream(std::ostream&) const override;
 
 private:
     std::vector<Ptr<Declaration>> decls_;

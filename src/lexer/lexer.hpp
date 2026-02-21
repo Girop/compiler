@@ -1,5 +1,6 @@
 #pragma once
 #include "DFMA.hpp"
+#include "file.hpp"
 #include "loc.hpp"
 #include "token.hpp"
 #include <optional>
@@ -9,7 +10,7 @@ namespace compiler
 
 class Lexer
 {
-    struct FilePos 
+    struct FilePos
     {
         Loc loc;
         size_t index;
@@ -28,18 +29,21 @@ class Lexer
     };
 
 public:
-    explicit Lexer(std::string_view filename, std::string_view fc) :
-        position_{ Loc{filename} , 0},
-        file_content_{ fc }
+    explicit Lexer(File const& file) :
+        position_{ Loc{ file.name }, 0 },
+        file_content_{ file.content }
     {
     }
 
     tokens::Token peek() const;
     tokens::Token advance();
 
+    Loc loc() const { return position_.loc; }
+
 private:
     BufferedPeek peek_with_offset() const;
-    tokens::Token create(FilePos const& starting_pos, size_t current, DFMAState state) const;
+    tokens::Token create(FilePos const& start, size_t current,
+                         DFMAState state) const;
     bool is_eof(FilePos const& pos) const
     {
         return pos.index >= file_content_.size();
@@ -55,7 +59,7 @@ private:
     static constexpr DFMATable table{};
 
     mutable std::optional<BufferedPeek> buffered_;
-    FilePos position_ ;
+    FilePos position_;
     std::string_view file_content_;
 };
 
