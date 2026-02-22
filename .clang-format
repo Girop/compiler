@@ -7,8 +7,11 @@ IndentWidth: 4
 PointerAlignment: Left
 AlwaysBreakAfterReturnType: None
 AlwaysBreakAfterDefinitionReturnType: None
-SpaceBeforeParens: Never
-BreakConstructorInitializers: AfterColon
+SpaceBeforeParens: ControlStatements
 ConstructorInitializerIndentWidth: 4
-PackConstructorInitializers: Never
-
+BreakBeforeBraces: Allman
+ColumnLimit: 120
+AllowShortCaseLabelsOnASingleLine: true
+AllowShortFunctionsOnASingleLine: All
+BreakConstructorInitializers: AfterColon
+PackConstructorInitializers: CurrentLine
