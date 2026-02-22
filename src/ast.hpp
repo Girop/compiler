@@ -1,4 +1,5 @@
 #pragma once
+#include "lexer/token.hpp"
 #include "loc.hpp"
 #include "sema.fwd.hpp"
 #include "type.fwd.hpp"
@@ -18,7 +19,7 @@ public:
         loc_{ loc }
     {
     }
-    virtual ~Node() {}
+    virtual ~Node() = default;
 
     Loc loc() const { return loc_; }
 
@@ -33,6 +34,7 @@ class Expr : public Node
 {
 public:
     using Node::Node;
+
     virtual Type const* check(Sema&) const = 0;
 
 protected:
@@ -50,15 +52,8 @@ public:
 class BinExpr : public Expr
 {
 public:
-    enum class Op : uint8_t
-    {
-        Add,
-        Sub,
-        Mul,
-        Div,
-    };
-
-    explicit BinExpr(Loc loc, Ptr<Expr>&& lhs, Op op, Ptr<Expr>&& rhs) :
+    explicit BinExpr(Loc loc, Ptr<Expr>&& lhs, tokens::Punctuator op,
+                     Ptr<Expr>&& rhs) :
         Expr(loc),
         op_{ op },
         lhs_{ std::move(lhs) },
@@ -68,8 +63,10 @@ public:
 
     const Type* check(Sema&) const override;
 
+    std::ostream& stream(std::ostream&) const override;
+
 private:
-    Op op_;
+    tokens::Punctuator op_;
     Ptr<Expr> lhs_;
     Ptr<Expr> rhs_;
 };
@@ -84,7 +81,7 @@ public:
     }
 
     const Type* check(Sema&) const override;
-
+    std::ostream& stream(std::ostream&) const override;
 private:
     int value_;
 };
@@ -108,22 +105,19 @@ private:
 class UnaryExpr : public Expr
 {
 public:
-    enum class Op : uint8_t
-    {
-        Negate,
-        Not,
-    };
 
-    UnaryExpr(Loc loc, Ptr<Expr>&& operand) :
+    UnaryExpr(Loc loc, tokens::Punctuator op, Ptr<Expr>&& operand) :
         Expr(loc),
+        op_{op},
         operand_{ std::move(operand) }
     {
     }
 
     Type const* check(Sema&) const override;
+    std::ostream& stream(std::ostream&) const override;
 
 private:
-    Op op_;
+    tokens::Punctuator op_;
     Ptr<Expr> operand_;
 };
 

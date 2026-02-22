@@ -1,5 +1,6 @@
 #include "ast.hpp"
 #include "type.hpp"
+#include "lexer/reflection.hpp"
 
 namespace compiler::ast
 {
@@ -50,5 +51,17 @@ std::ostream& FunctionDecl::stream(std::ostream& os) const
 }
 
 std::ostream& Iden::stream(std::ostream& os) const { return os << name_; }
+
+std::ostream& UnaryExpr::stream(std::ostream& os) const 
+{
+    os << "( " << tokens::to_string(op_) << " ";
+    operand_->stream(os);
+    return os << " )";
+}
+
+std::ostream& IntLiteral::stream(std::ostream& os) const 
+{
+    return os << std::to_string(value_);
+}
 
 } // namespace compiler::ast

@@ -28,6 +28,34 @@ void Parser::expect(tokens::Punctuator punct)
         }
 }
 
+uint8_t Parser::prefix_binding_power(tokens::Punctuator punct) const
+{
+    using tokens::Punctuator;
+    switch (punct)
+    {
+        case Punctuator::Exclaim:
+        case Punctuator::Ampersand:
+        case Punctuator::Star:
+        case Punctuator::Plus: return 20;
+        default: REPORT_ICE("Unexpected punctuator as an infix");
+    }
+}
+
+std::pair<uint8_t, uint8_t> Parser::binding_power(tokens::Punctuator punct) const
+{
+    using tokens::Punctuator;
+    switch (punct)
+    {
+
+        case Punctuator::Plus:
+        case Punctuator::Minus: return {10, 11};
+        case Punctuator::Star:
+        case Punctuator::Slash: return {12, 13};
+        default: REPORT_ICE("Unexpected punctuator: " << tokens::to_string(punct));
+    }
+}
+
+
 ast::Ptr<ast::TranslationUnit> Parser::parse()
 {
     std::vector<ast::Ptr<ast::Declaration>> decls;
@@ -144,11 +172,46 @@ ast::Ptr<ast::CompoundStmt> Parser::compound_stmt()
     return std::make_unique<ast::CompoundStmt>(loc, std::move(statements));
 }
 
-ast::Ptr<ast::Expr> Parser::expr()
+
+ast::Ptr<ast::IntLiteral> Parser::constant()
 {
-    // supported expressions: identifiers, IntLiterals
-    // BinExpr, UnExpr
-    return nullptr;
+    auto const tok = lexer_.advance();
+    assert(tok.tag == tokens::Tag::Constant);
+
+    return std::make_unique<ast::IntLiteral>(tok.loc, std::get<int>(tok.value));
+}
+
+ast::Ptr<ast::Expr> Parser::expr(uint8_t min_bp)
+{
+    auto get_atom = [&] () -> ast::Ptr<ast::Expr> {
+        auto const atom {lexer_.peek()};
+        switch (atom.tag) 
+        {
+            case tokens::Tag::Identifier: return identifier();
+            case tokens::Tag::Constant: return constant();
+            case tokens::Tag::Punctuator:
+            {
+                auto const p = std::get<tokens::Punctuator>(atom.value);
+                return std::make_unique<ast::UnaryExpr>(atom.loc, p, expr(prefix_binding_power(p)));
+            }
+            default: REPORT_ICE("Unrecognized expression atom");
+        }
+    };
+
+    auto lhs = get_atom();
+    while (true)
+    { 
+        auto const tok = lexer_.peek();
+        assert(tok.tag == tokens::Tag::Punctuator);
+        auto const op = std::get<tokens::Punctuator>(tok.value);
+        auto const [lbp, rbp] = binding_power(op);
+        if (lbp < min_bp) break;
+        auto const loc = lhs->loc();
+        auto rhs = expr(rbp);
+        lhs = std::make_unique<ast::BinExpr>(loc, std::move(lhs), op, std::move(rhs));
+    }
+
+    return lhs;
 }
 
 } // namespace compiler
