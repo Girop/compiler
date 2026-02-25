@@ -193,17 +193,17 @@ std::ostream& Type::stream(std::ostream& os) const
 {
     std::string type;
 
-    if (quals_.test(static_cast<int>(Qualifier::Const)))
+    if (quals_.test(to_underlying(Qualifier::Const)))
     {
         type += "const ";
     }
 
-    if (quals_.test(static_cast<int>(Qualifier::Volatile)))
+    if (quals_.test(to_underlying(Qualifier::Volatile)))
     {
         type += "volatile ";
     }
 
-    if (quals_.test(static_cast<int>(Qualifier::Restrict)))
+    if (quals_.test(to_underlying(Qualifier::Restrict)))
     {
         type += "restrict ";
     }

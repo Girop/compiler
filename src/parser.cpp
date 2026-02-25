@@ -10,6 +10,8 @@ int8_t Parser::prefix_binding_power(tokens::Punctuator punct) const
     using tokens::Punctuator;
     switch (punct)
     {
+    case Punctuator::PlusPlus:
+    case Punctuator::MinusMinus:
     case Punctuator::Exclaim:
     case Punctuator::Ampersand:
     case Punctuator::Star:
@@ -33,7 +35,7 @@ std::pair<int8_t, int8_t> Parser::binding_power(tokens::Punctuator punct) const
     case Punctuator::GreaterGreaterEqual:
     case Punctuator::AmpersandEqual:
     case Punctuator::CaretEqual:
-    case Punctuator::PipeEqual: return { 4, 5 };
+    case Punctuator::PipeEqual: return { 5, 4 };
     case Punctuator::PipePipe: return { 6, 7 };
     case Punctuator::AmpersandAmpersand: return { 8, 9 };
     case Punctuator::Pipe: return { 10, 11 };
@@ -226,7 +228,7 @@ ast::Ptr<ast::IntLiteral> Parser::constant()
     return std::make_unique<ast::IntLiteral>(tok.loc, std::get<int>(tok.value));
 }
 
-ast::Ptr<ast::Expr> Parser::expr_atom()
+ast::Ptr<ast::Expr> Parser::unary_expr()
 {
     auto const atom{ lexer_.peek() };
     switch (atom.tag)
@@ -255,7 +257,7 @@ ast::Ptr<ast::Expr> Parser::expr_atom()
 
 ast::Ptr<ast::Expr> Parser::expr(int8_t min_bp)
 {
-    auto lhs = expr_atom();
+    auto lhs = unary_expr();
     while (true)
     {
         auto const tok = lexer_.peek();

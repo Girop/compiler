@@ -17,7 +17,7 @@ public:
 private:
     ast::Ptr<ast::Declaration> declaration();
 
-    ast::Ptr<ast::Expr> expr_atom();
+    ast::Ptr<ast::Expr> unary_expr();
     ast::Ptr<ast::Expr> expr(int8_t min_bp = 0);
     ast::Ptr<ast::Stmt> statement();
     ast::Ptr<ast::Stmt> selection_statement();
