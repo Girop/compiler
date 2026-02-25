@@ -11,15 +11,11 @@ class Loc
     template <typename Self> class Diagnostic
     {
     public:
-        explicit Diagnostic(Loc const& loc) :
-            loc_{ loc }
-        {
-        }
+        explicit Diagnostic(Loc const& loc) : loc_{ loc } {}
 
         template <typename T> std::ostream& operator<<(T&& message)
         {
-            return std::cerr << static_cast<Self*>(this)->type()
-                             << loc_.format() << message << '\n';
+            return std::cerr << static_cast<Self*>(this)->type() << loc_.format() << " " << message;
         }
 
     private:
@@ -30,27 +26,19 @@ class Loc
     {
         friend Diagnostic;
         using Diagnostic::Diagnostic;
-        constexpr std::string_view type() const { return "Warning:"; }
+        constexpr std::string_view type() const { return "Warning: "; }
     };
 
     class Err : public Diagnostic<Err>
     {
         friend Diagnostic;
         using Diagnostic::Diagnostic;
-        constexpr std::string_view type() const { return "Error:"; }
+        constexpr std::string_view type() const { return "Error: "; }
     };
 
 public:
-    explicit Loc(std::string_view filename) :
-        filename_{ filename }
-    {
-    }
-    Loc(std::string_view filename, size_t row, size_t col) :
-        filename_{ filename },
-        row_{ row },
-        column_{ col }
-    {
-    }
+    explicit Loc(std::string_view filename) : filename_{ filename } {}
+    Loc(std::string_view filename, size_t row, size_t col) : filename_{ filename }, row_{ row }, column_{ col } {}
 
     std::string_view filename() const { return filename_; }
     std::string format() const;

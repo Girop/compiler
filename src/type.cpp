@@ -1,5 +1,5 @@
 #include "type.hpp"
-#include <algorithm> 
+#include <algorithm>
 #include <array>
 
 namespace compiler::ast
@@ -14,49 +14,33 @@ Type::Qualifiers qual(std::vector<tokens::Keyword> const& keywords)
 {
     Type::Qualifiers quals;
 
-    for(auto& k : keywords)
+    for (auto& k : keywords)
+    {
+        switch (k)
         {
-            switch(k)
-                {
-                case Keyword::Const:
-                    quals.set(to_underlying(Qualifier::Const));
-                    continue;
-                case Keyword::Volatile:
-                    quals.set(to_underlying(Qualifier::Volatile));
-                    continue;
-                case Keyword::Restrict:
-                    quals.set(to_underlying(Qualifier::Restrict));
-                    continue;
-                default:
-                    continue;
-                }
+        case Keyword::Const: quals.set(to_underlying(Qualifier::Const)); continue;
+        case Keyword::Volatile: quals.set(to_underlying(Qualifier::Volatile)); continue;
+        case Keyword::Restrict: quals.set(to_underlying(Qualifier::Restrict)); continue;
+        default: continue;
         }
+    }
     return quals;
 }
 
 Storage storage(std::vector<tokens::Keyword> const& keywords)
 {
-    Storage storage {Storage::Unspecified};
-    for(auto& k : keywords)
+    Storage storage{ Storage::Unspecified };
+    for (auto& k : keywords)
+    {
+        switch (k)
         {
-            switch(k)
-                {
-                case Keyword::Extern:
-                    storage = Storage::Extern;
-                    break;
-                case Keyword::Auto:
-                    storage = Storage::Auto;
-                    break;
-                case Keyword::Static:
-                    storage = Storage::Static;
-                    break;
-                case Keyword::Register:
-                    storage = Storage::Register;
-                    break;
-                default:
-                    continue;
-                }
+        case Keyword::Extern: storage = Storage::Extern; break;
+        case Keyword::Auto: storage = Storage::Auto; break;
+        case Keyword::Static: storage = Storage::Static; break;
+        case Keyword::Register: storage = Storage::Register; break;
+        default: continue;
         }
+    }
     return storage;
 }
 
@@ -84,9 +68,7 @@ public:
     };
 
 private:
-    using Storage
-        = std::array<std::array<State, to_underlying(Keyword::Imaginary)>,
-                     to_underlying(State::_Count)>;
+    using Storage = std::array<std::array<State, to_underlying(Keyword::Imaginary)>, to_underlying(State::_Count)>;
 
 public:
     consteval TypeDeductionTable()
@@ -96,6 +78,8 @@ public:
         fill(State::Inital, Keyword::Bool, State::Bool);
         fill(State::Float, Keyword::Float, State::Float);
         fill(State::Inital, Keyword::Long, State::Long);
+
+        fill(State::Inital, Keyword::Int, State::Int);
 
         fill(State::Long, Keyword::Int, State::LongInt);
         fill(State::Int, Keyword::Long, State::LongInt);
@@ -120,61 +104,45 @@ public:
 
     BasicType to_type(Loc loc, State state) const
     {
-        switch(state)
-            {
-            case State::Char:
-                return BasicType::SignedChar;
-            case State::Float:
-                return BasicType::Float;
-            case State::Int:
-                return BasicType::Int;
-            case State::Void:
-                return BasicType::Void;
-            case State::Bool:
-                return BasicType::Bool;
-            case State::Short:
-                return BasicType::ShortInt;
-            case State::ShortInt:
-                return BasicType::ShortInt;
-            case State::Long:
-                return BasicType::LongInt;
-            case State::LongInt:
-                return BasicType::LongInt;
-            case State::LongLongInt:
-                return BasicType::LongLongInt;
-            case State::LongLong:
-                return BasicType::LongLongInt;
-            case State::LongDouble:
-                return BasicType::LongDouble;
-            case State::Double:
-                return BasicType::Double;
-            case State::Error:
-            case State::Inital:
-            case State::_Count:
-                break;
-            }
+        switch (state)
+        {
+        case State::Char: return BasicType::SignedChar;
+        case State::Float: return BasicType::Float;
+        case State::Int: return BasicType::Int;
+        case State::Void: return BasicType::Void;
+        case State::Bool: return BasicType::Bool;
+        case State::Short: return BasicType::ShortInt;
+        case State::ShortInt: return BasicType::ShortInt;
+        case State::Long: return BasicType::LongInt;
+        case State::LongInt: return BasicType::LongInt;
+        case State::LongLongInt: return BasicType::LongLongInt;
+        case State::LongLong: return BasicType::LongLongInt;
+        case State::LongDouble: return BasicType::LongDouble;
+        case State::Double: return BasicType::Double;
+        case State::Error:
+        case State::Inital:
+        case State::_Count: break;
+        }
 
-        loc.err() << "Invaid type specifier";
+        loc.err() << "Invaid type specifier\n";
         return BasicType::Void;
     }
 
     constexpr bool ignorable(Keyword k) const
     {
-        switch(k)
-            {
-            case Keyword::Const:
-            case Keyword::Volatile:
-            case Keyword::Restrict:
-            case Keyword::Signed:
-            case Keyword::Unsigned:
-            case Keyword::Extern:
-            case Keyword::Auto:
-            case Keyword::Static:
-            case Keyword::Register:
-                return true;
-            default:
-                return false;
-            }
+        switch (k)
+        {
+        case Keyword::Const:
+        case Keyword::Volatile:
+        case Keyword::Restrict:
+        case Keyword::Signed:
+        case Keyword::Unsigned:
+        case Keyword::Extern:
+        case Keyword::Auto:
+        case Keyword::Static:
+        case Keyword::Register: return true;
+        default: return false;
+        }
     }
 
 private:
@@ -190,15 +158,15 @@ BasicType basic_type(std::vector<tokens::Keyword> const& keywords, Loc loc)
 {
     using State = TypeDeductionTable::State;
     State result{ State::Error };
-    State state{ State::Error };
+    State state{ State::Inital };
 
-    for(auto& k : keywords)
-        {
-            if(table.ignorable(k)) continue;
-            state = table(state, k);
-            if(state == State::Error) break;
-            result = state;
-        }
+    for (auto& k : keywords)
+    {
+        if (table.ignorable(k)) continue;
+        state = table(state, k);
+        if (state == State::Error) break;
+        result = state;
+    }
     return table.to_type(loc, result);
 }
 
@@ -209,15 +177,22 @@ Type::Type(Loc loc, std::vector<tokens::Keyword>&& keywords) :
     quals_{ qual(keywords) },
     storage_{ storage(keywords) },
     basic_{ basic_type(keywords, loc) },
-    signed_{ std::all_of(keywords.begin(), keywords.end(),
-                         [](auto& k) { return k != Keyword::Unsigned; }) }
+    signed_{ std::all_of(keywords.begin(), keywords.end(), [](auto& k) { return k != Keyword::Unsigned; }) }
 {
 }
 
-std::ostream& Type::stream(std::ostream& os) const 
+void Type::set_default_storage(Storage storage)
 {
-    std::string type;    
-    
+    if (storage_ == Storage::Unspecified)
+    {
+        storage_ = storage;
+    }
+}
+
+std::ostream& Type::stream(std::ostream& os) const
+{
+    std::string type;
+
     if (quals_.test(static_cast<int>(Qualifier::Const)))
     {
         type += "const ";
@@ -235,30 +210,30 @@ std::ostream& Type::stream(std::ostream& os) const
 
     switch (storage_)
     {
-        case Storage::Unspecified: REPORT_ICE("Type wihtout set storage");
-        case Storage::Extern: type += "extern "; break;
-        case Storage::Auto: type += "auto "; break;
-        case Storage::Static: type += "static "; break;
-        case Storage::Register: type += "register "; break;
+    case Storage::Unspecified: REPORT_ICE("Type wihtout set storage");
+    case Storage::Extern: type += "extern "; break;
+    case Storage::Auto: type += "auto "; break;
+    case Storage::Static: type += "static "; break;
+    case Storage::Register: type += "register "; break;
     }
-    
-    if (!signed_)   
+
+    if (!signed_)
     {
         type += "unsigned ";
     }
-    
+
     switch (basic_)
     {
-        case BasicType::SignedChar: type += "char "; break;
-        case BasicType::ShortInt: type += "short int "; break;
-        case BasicType::Int: type += "int "; break;
-        case BasicType::LongInt: type += "long int "; break;
-        case BasicType::LongLongInt: type += "long long int "; break;
-        case BasicType::Float: type += "float "; break;
-        case BasicType::Double: type += "double "; break;
-        case BasicType::LongDouble: type += "long double "; break;
-        case BasicType::Bool: type += "bool "; break;
-        case BasicType::Void: type += "void "; break;
+    case BasicType::SignedChar: type += "char "; break;
+    case BasicType::ShortInt: type += "short int "; break;
+    case BasicType::Int: type += "int "; break;
+    case BasicType::LongInt: type += "long int "; break;
+    case BasicType::LongLongInt: type += "long long int "; break;
+    case BasicType::Float: type += "float "; break;
+    case BasicType::Double: type += "double "; break;
+    case BasicType::LongDouble: type += "long double "; break;
+    case BasicType::Bool: type += "bool "; break;
+    case BasicType::Void: type += "void "; break;
     }
     return os << type;
 }

@@ -111,8 +111,7 @@ enum class Punctuator : uint8_t
 
 struct Token
 {
-    using Value
-        = std::variant<std::monostate, Punctuator, Keyword, std::string, int>;
+    using Value = std::variant<std::monostate, Punctuator, Keyword, std::string, int>;
 
     Tag tag;
     Value value;

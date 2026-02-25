@@ -15,16 +15,14 @@ template <typename T> using Ptr = std::unique_ptr<T>;
 class Node
 {
 public:
-    explicit Node(Loc loc) :
-        loc_{ loc }
-    {
-    }
+    explicit Node(Loc loc) : loc_{ loc } {}
     virtual ~Node() = default;
 
     Loc loc() const { return loc_; }
 
     void dump() const { stream(std::cout) << std::endl; }
     virtual std::ostream& stream(std::ostream&) const = 0;
+    // virtual bool accepted() const { return true; };
 
 private:
     Loc loc_;
@@ -38,7 +36,7 @@ public:
     virtual Type const* check(Sema&) const = 0;
 
 protected:
-    // Type const* type = nullptr;
+    Type const* type = nullptr;
 };
 
 class Stmt : public Node
@@ -52,8 +50,7 @@ public:
 class BinExpr : public Expr
 {
 public:
-    explicit BinExpr(Loc loc, Ptr<Expr>&& lhs, tokens::Punctuator op,
-                     Ptr<Expr>&& rhs) :
+    explicit BinExpr(Loc loc, Ptr<Expr>&& lhs, tokens::Punctuator op, Ptr<Expr>&& rhs) :
         Expr(loc),
         op_{ op },
         lhs_{ std::move(lhs) },
@@ -74,14 +71,11 @@ private:
 class IntLiteral : public Expr
 {
 public:
-    IntLiteral(Loc loc, int value) :
-        Expr(loc),
-        value_{ value }
-    {
-    }
+    IntLiteral(Loc loc, int value) : Expr(loc), value_{ value } {}
 
     const Type* check(Sema&) const override;
     std::ostream& stream(std::ostream&) const override;
+
 private:
     int value_;
 };
@@ -89,11 +83,7 @@ private:
 class Iden : public Expr
 {
 public:
-    Iden(Loc loc, std::string const& name) :
-        Expr(loc),
-        name_{ name }
-    {
-    }
+    Iden(Loc loc, std::string const& name) : Expr(loc), name_{ name } {}
 
     const Type* check(Sema&) const override;
     std::ostream& stream(std::ostream&) const override;
@@ -105,10 +95,9 @@ private:
 class UnaryExpr : public Expr
 {
 public:
-
     UnaryExpr(Loc loc, tokens::Punctuator op, Ptr<Expr>&& operand) :
         Expr(loc),
-        op_{op},
+        op_{ op },
         operand_{ std::move(operand) }
     {
     }
@@ -124,32 +113,13 @@ private:
 class ExprStmt : public Stmt
 {
 public:
-    ExprStmt(Loc loc, Ptr<Expr>&& expr) :
-        Stmt(loc),
-        expr_{ std::move(expr) }
-    {
-    }
+    ExprStmt(Loc loc, Ptr<Expr>&& expr) : Stmt(loc), expr_{ std::move(expr) } {}
 
     void check(Sema&) const override;
+    std::ostream& stream(std::ostream&) const override;
 
 private:
     Ptr<Expr> expr_;
-};
-
-class CompoundStmt : public Stmt
-{
-public:
-    explicit CompoundStmt(Loc loc, std::vector<Ptr<Stmt>>&& stmts) :
-        Stmt(loc),
-        stmts_{ std::move(stmts) }
-    {
-    }
-
-    std::ostream& stream(std::ostream& os) const override;
-    void check(Sema&) const override;
-
-private:
-    std::vector<Ptr<Stmt>> stmts_;
 };
 
 class IfStmt : public Stmt
@@ -164,6 +134,7 @@ public:
     }
 
     void check(Sema&) const override;
+    std::ostream& stream(std::ostream&) const override;
 
 private:
     Ptr<Expr> cond_;
@@ -198,11 +169,25 @@ private:
     Ptr<Expr> init_;
 };
 
+using DeclOrStmt = std::variant<Ptr<Stmt>, Ptr<Declaration>>;
+
+class CompoundStmt : public Stmt
+{
+public:
+    explicit CompoundStmt(Loc loc, std::vector<DeclOrStmt>&& itms) : Stmt(loc), items_{ std::move(itms) } {}
+
+    std::ostream& stream(std::ostream& os) const override;
+    void check(Sema&) const override;
+
+private:
+    std::vector<DeclOrStmt> items_;
+};
+
 class FunctionDecl : public Declaration
 {
 public:
-    FunctionDecl(Loc loc, Ptr<Type>&& type, Ptr<Iden>&& iden,
-                 std::vector<Ptr<ObjDecl>>&& args, Ptr<CompoundStmt>&& body) :
+    FunctionDecl(Loc loc, Ptr<Type>&& type, Ptr<Iden>&& iden, std::vector<Ptr<ObjDecl>>&& args,
+                 Ptr<CompoundStmt>&& body) :
         Declaration(loc),
         return_{ std::move(type) },
         iden_{ std::move(iden) },
@@ -218,23 +203,43 @@ private:
     Ptr<Type> return_;
     Ptr<Iden> iden_;
     std::vector<Ptr<ObjDecl>> args_;
-    Ptr<CompoundStmt>&& body_;
+    Ptr<CompoundStmt> body_;
+};
+
+class ReturnStmt : public Stmt
+{
+public:
+    ReturnStmt(Loc loc, Ptr<Expr>&& value) : Stmt(loc), value_{ std::move(value) } {}
+
+    void check(Sema&) const override;
+    std::ostream& stream(std::ostream& os) const override;
+
+private:
+    Ptr<Expr> value_;
+};
+
+class NullStmt : public Stmt
+{
+public:
+    explicit NullStmt(Loc loc) : Stmt(loc) {}
+
+    void check(Sema&) const override {};
+    std::ostream& stream(std::ostream& os) const override { return os << ";\n"; }
 };
 
 class TranslationUnit : public Node
 {
 public:
-    TranslationUnit(std::string_view filename,
-                    std::vector<Ptr<Declaration>>&& decls) :
+    TranslationUnit(std::string_view filename, std::vector<DeclOrStmt>&& items) :
         Node(Loc{ filename }),
-        decls_{ std::move(decls) }
+        items_{ std::move(items) }
     {
     }
 
     std::ostream& stream(std::ostream&) const override;
 
 private:
-    std::vector<Ptr<Declaration>> decls_;
+    std::vector<DeclOrStmt> items_;
 };
 
 } // namespace compiler::ast

@@ -1,11 +1,11 @@
 #pragma once
+#include "ast.hpp"
+#include "lexer/token.hpp"
 #include "utils.hpp"
 #include <bitset>
 #include <climits>
-#include <cstdint> 
+#include <cstdint>
 #include <vector>
-#include "lexer/token.hpp"
-#include "ast.hpp"
 
 namespace compiler::ast
 {
@@ -17,11 +17,11 @@ enum class BasicType : uint8_t
     Int,         // int32_t
     LongInt,     // int64_t
     LongLongInt, // Also int64_t on linux
-    Float,      // f32
-    Double,     // f64
-    LongDouble, // f128
-    Bool, // bool
-    Void, // Void
+    Float,       // f32
+    Double,      // f64
+    LongDouble,  // f128
+    Bool,        // bool
+    Void,        // Void
 };
 
 enum class Qualifier : uint8_t
@@ -31,7 +31,7 @@ enum class Qualifier : uint8_t
     Restrict,
 };
 
-enum class Storage : uint8_t 
+enum class Storage : uint8_t
 {
     Unspecified,
     Extern,
@@ -40,21 +40,22 @@ enum class Storage : uint8_t
     Register
 };
 
-class Type: public Node
+class Type : public Node
 {
 public:
-    using Qualifiers = std::bitset<to_underlying(Qualifier::Restrict)>;
+    using Qualifiers = std::bitset<to_underlying(Qualifier::Restrict) + 1>;
 
     explicit Type(Loc loc, std::vector<tokens::Keyword>&& keywords);
-
     virtual std::ostream& stream(std::ostream&) const override;
+    void set_default_storage(Storage storage);
+
 private:
     Qualifiers quals_;
     Storage storage_;
     BasicType basic_;
     bool signed_;
 
-    // conversion rank 
+    // conversion rank
 };
 
-} // namespace compiler
+} // namespace compiler::ast
