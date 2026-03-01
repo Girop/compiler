@@ -2,7 +2,7 @@
 #include "lexer/token.hpp"
 #include "loc.hpp"
 #include "sema.fwd.hpp"
-#include "type.fwd.hpp"
+#include "type.hpp"
 #include <iostream>
 #include <memory>
 #include <vector>
@@ -22,7 +22,6 @@ public:
 
     void dump() const { stream(std::cout) << std::endl; }
     virtual std::ostream& stream(std::ostream&) const = 0;
-    // virtual bool accepted() const { return true; };
 
 private:
     Loc loc_;
@@ -33,10 +32,10 @@ class Expr : public Node
 public:
     using Node::Node;
 
-    virtual Type const* check(Sema&) const = 0;
+    virtual Type const* check(Sema&) = 0;
 
 protected:
-    Type const* type = nullptr;
+    Type const* type_ = nullptr;
 };
 
 class Stmt : public Node
@@ -44,7 +43,7 @@ class Stmt : public Node
 public:
     using Node::Node;
 
-    virtual void check(Sema&) const = 0;
+    virtual void check(Sema&) = 0;
 };
 
 class BinExpr : public Expr
@@ -58,8 +57,7 @@ public:
     {
     }
 
-    const Type* check(Sema&) const override;
-
+    const Type* check(Sema&) override;
     std::ostream& stream(std::ostream&) const override;
 
 private:
@@ -71,13 +69,13 @@ private:
 class IntLiteral : public Expr
 {
 public:
-    IntLiteral(Loc loc, int value) : Expr(loc), value_{ value } {}
+    IntLiteral(Loc loc, int64_t value) : Expr(loc), value_{ value } {}
 
-    const Type* check(Sema&) const override;
+    const Type* check(Sema&) override;
     std::ostream& stream(std::ostream&) const override;
 
 private:
-    int value_;
+    int64_t value_;
 };
 
 class Iden : public Expr
@@ -85,7 +83,9 @@ class Iden : public Expr
 public:
     Iden(Loc loc, std::string const& name) : Expr(loc), name_{ name } {}
 
-    const Type* check(Sema&) const override;
+    std::string_view name() const { return name_; }
+
+    const Type* check(Sema&) override;
     std::ostream& stream(std::ostream&) const override;
 
 private:
@@ -102,7 +102,7 @@ public:
     {
     }
 
-    Type const* check(Sema&) const override;
+    Type const* check(Sema&) override;
     std::ostream& stream(std::ostream&) const override;
 
 private:
@@ -115,7 +115,7 @@ class ExprStmt : public Stmt
 public:
     ExprStmt(Loc loc, Ptr<Expr>&& expr) : Stmt(loc), expr_{ std::move(expr) } {}
 
-    void check(Sema&) const override;
+    void check(Sema&) override;
     std::ostream& stream(std::ostream&) const override;
 
 private:
@@ -133,13 +133,36 @@ public:
     {
     }
 
-    void check(Sema&) const override;
+    void check(Sema&) override;
     std::ostream& stream(std::ostream&) const override;
 
 private:
     Ptr<Expr> cond_;
     Ptr<Stmt> cons_;
     Ptr<Stmt> alt_;
+};
+
+enum class Storage : uint8_t
+{
+    Unspecified,
+    Extern,
+    Auto,
+    Static,
+    Register
+};
+
+class TypeDecl : public Node
+{
+public:
+    TypeDecl(Loc loc, Type const* type, Storage storage) : Node(loc), storage_{ storage }, type_{ type } {}
+    virtual std::ostream& stream(std::ostream&) const override;
+
+    Storage storage() const { return storage_; }
+    Type const* type() const { return type_; }
+
+private:
+    Storage storage_;
+    Type const* type_;
 };
 
 class Declaration : public Node
@@ -151,8 +174,10 @@ public:
 
 class ObjDecl : public Declaration
 {
+    friend Sema;
+
 public:
-    ObjDecl(Loc loc, Ptr<Type>&& type, Ptr<Iden>&& iden, Ptr<Expr>&& init) :
+    ObjDecl(Loc loc, Ptr<TypeDecl>&& type, Ptr<Iden>&& iden, Ptr<Expr>&& init) :
         Declaration(loc),
         type_{ std::move(type) },
         iden_{ std::move(iden) },
@@ -162,9 +187,10 @@ public:
 
     std::ostream& stream(std::ostream&) const override;
     void add(Sema&) const override;
+    TypeDecl const& type() const { return *type_; }
 
 private:
-    Ptr<Type> type_;
+    Ptr<TypeDecl> type_;
     Ptr<Iden> iden_;
     Ptr<Expr> init_;
 };
@@ -177,7 +203,7 @@ public:
     explicit CompoundStmt(Loc loc, std::vector<DeclOrStmt>&& itms) : Stmt(loc), items_{ std::move(itms) } {}
 
     std::ostream& stream(std::ostream& os) const override;
-    void check(Sema&) const override;
+    void check(Sema&) override;
 
 private:
     std::vector<DeclOrStmt> items_;
@@ -185,8 +211,10 @@ private:
 
 class FunctionDecl : public Declaration
 {
+    friend Sema;
+
 public:
-    FunctionDecl(Loc loc, Ptr<Type>&& type, Ptr<Iden>&& iden, std::vector<Ptr<ObjDecl>>&& args,
+    FunctionDecl(Loc loc, Ptr<TypeDecl>&& type, Ptr<Iden>&& iden, std::vector<Ptr<ObjDecl>>&& args,
                  Ptr<CompoundStmt>&& body) :
         Declaration(loc),
         return_{ std::move(type) },
@@ -199,8 +227,10 @@ public:
     void add(Sema&) const override;
     std::ostream& stream(std::ostream& os) const override;
 
+    TypeDecl const& type() const { return *return_; }
+
 private:
-    Ptr<Type> return_;
+    Ptr<TypeDecl> return_;
     Ptr<Iden> iden_;
     std::vector<Ptr<ObjDecl>> args_;
     Ptr<CompoundStmt> body_;
@@ -211,7 +241,7 @@ class ReturnStmt : public Stmt
 public:
     ReturnStmt(Loc loc, Ptr<Expr>&& value) : Stmt(loc), value_{ std::move(value) } {}
 
-    void check(Sema&) const override;
+    void check(Sema&) override;
     std::ostream& stream(std::ostream& os) const override;
 
 private:
@@ -223,7 +253,7 @@ class NullStmt : public Stmt
 public:
     explicit NullStmt(Loc loc) : Stmt(loc) {}
 
-    void check(Sema&) const override {};
+    void check(Sema&) override {};
     std::ostream& stream(std::ostream& os) const override { return os << ";\n"; }
 };
 
@@ -237,6 +267,7 @@ public:
     }
 
     std::ostream& stream(std::ostream&) const override;
+    void check(Sema&);
 
 private:
     std::vector<DeclOrStmt> items_;

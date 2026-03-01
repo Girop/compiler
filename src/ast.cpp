@@ -1,9 +1,13 @@
 #include "ast.hpp"
 #include "lexer/reflection.hpp"
+#include "sema.hpp"
 #include "type.hpp"
+#include <limits>
 
 namespace compiler::ast
 {
+
+// stream implementations
 
 namespace
 {
@@ -12,6 +16,27 @@ std::ostream& stream(std::ostream& os, DeclOrStmt const& item)
 {
     auto format = [&os](auto const& i) -> std::ostream& { return i->stream(os); };
     return std::visit(format, item);
+}
+
+constexpr bool is_assign_op(tokens::Punctuator op)
+{
+    using tokens::Punctuator;
+    switch (op)
+    {
+    case Punctuator::Equal:
+    case Punctuator::StarEqual:
+    case Punctuator::SlashEqual:
+    case Punctuator::PercentEqual:
+    case Punctuator::PlusEqual:
+    case Punctuator::MinusEqual:
+    case Punctuator::LessLessEqual:
+    case Punctuator::GreaterGreaterEqual:
+    case Punctuator::AmpersandEqual:
+    case Punctuator::CaretEqual:
+    case Punctuator::PipeEqual: return true;
+    default: break;
+    }
+    return false;
 }
 
 } // namespace
@@ -105,26 +130,146 @@ std::ostream& ExprStmt::stream(std::ostream& os) const
     return os << ";\n";
 }
 
-void ExprStmt::check(Sema&) const {}
-
 std::ostream& IntLiteral::stream(std::ostream& os) const { return os << std::to_string(value_); }
 
-Type const* UnaryExpr::check(Sema&) const { return nullptr; }
+std::ostream& TypeDecl::stream(std::ostream& os) const
+{
+    std::string type;
+    switch (storage_)
+    {
+    case Storage::Unspecified: REPORT_ICE("Type without set storage");
+    case Storage::Extern: type += "extern "; break;
+    case Storage::Auto: type += "auto "; break;
+    case Storage::Static: type += "static "; break;
+    case Storage::Register: type += "register "; break;
+    }
+    type += type_->format();
+    return os << type;
+}
 
-const Type* IntLiteral::check(Sema&) const { return nullptr; }
+// end stream implementations
+// Expr checks
+Type const* UnaryExpr::check(Sema&)
+{
+    switch (op_)
+    {
+    case tokens::Punctuator::PlusPlus:
+    case tokens::Punctuator::MinusMinus:
+    case tokens::Punctuator::Ampersand:
+    case tokens::Punctuator::Star:
+    case tokens::Punctuator::Plus:
+    case tokens::Punctuator::Minus:
+    case tokens::Punctuator::Tilde:
+    case tokens::Punctuator::Exclaim:
+    default: REPORT_ICE("Unexpected operator for UnaryExpression");
+    }
+}
 
-void IfStmt::check(Sema&) const {}
+Type const* IntLiteral::check(Sema& sema)
+{
+    // TODO only decimal constant without suffixes support now
+    if (value_ <= std::numeric_limits<int>::max())
+    {
+        return type_ = sema.get_type(BasicType::Int);
+    }
 
-void ObjDecl::add(Sema&) const {}
+    if (value_ <= std::numeric_limits<long int>::max())
+    {
+        return type_ = sema.get_type(BasicType::LongInt);
+    }
 
-void CompoundStmt::check(Sema&) const {}
+    if (value_ <= std::numeric_limits<long long int>::max())
+    {
+        return type_ = sema.get_type(BasicType::LongLongInt);
+    }
+    REPORT_ICE("Unsupported constant");
+}
 
-const Type* BinExpr::check(Sema&) const { return nullptr; }
+Type const* BinExpr::check(Sema& sema)
+{
+    auto lhs = lhs_->check(sema);
+    auto rhs = rhs_->check(sema);
 
-const Type* Iden::check(Sema&) const { return nullptr; }
+    if (is_assign_op(op_))
+    {
 
-void ReturnStmt::check(Sema&) const {}
+        Type::implicit_conversion(loc(), *lhs, *rhs);
+        // TODO lhs convert rhs to lhs,
+        if (!lhs->is_modifyable_lvalue())
+        {
+            loc().err() << "Cannot assign to non modifyable lvalue\n";
+            return type_;
+        }
+        return type_ = lhs;
+    }
 
-void FunctionDecl::add(Sema&) const {}
+    auto converted = Type::implicit_conversion(loc(), *lhs, *rhs);
+    return type_ = sema.new_type(converted);
+}
+
+Type const* Iden::check(Sema& sema) { return type_ = sema.lookup(*this)->type().type(); }
+// End expr checks
+// Stmnt checks
+
+void check(std::vector<DeclOrStmt>& items, Sema& sema)
+{
+    for (auto& item : items)
+    {
+        if (auto* decl = std::get_if<Ptr<Declaration>>(&item); decl != nullptr)
+        {
+            decl->get()->add(sema);
+        }
+        else
+        {
+            auto& stmt = std::get<Ptr<Stmt>>(item);
+            stmt->check(sema);
+        }
+    }
+}
+
+void ExprStmt::check(Sema& sema) { expr_->check(sema); }
+
+void IfStmt::check(Sema& sema)
+{
+    auto expr_t = cond_->check(sema);
+    if (!expr_t->is_scalar())
+    {
+        loc().err() << "Value of the expression is not convertible to bool\n";
+    }
+}
+
+void CompoundStmt::check(Sema& sema) { ast::check(items_, sema); }
+
+void ReturnStmt::check(Sema& sema)
+{
+    auto& func = sema.current_fuction();
+    if (func.type().type()->is_void())
+    {
+        if (value_ != nullptr)
+        {
+            value_->check(sema);
+            loc().err() << "Function declared with \'void\' cannot return a value\n";
+            return;
+        }
+    }
+
+    if (value_ == nullptr)
+    {
+        loc().err() << "Function should return a value\n";
+        return;
+    }
+
+    auto ret_expr_t = value_->check(sema);
+    auto converted = Type::implicit_conversion(loc(), *func.type().type(), *ret_expr_t);
+    sema.new_type(converted);
+}
+
+void TranslationUnit::check(Sema& sema) { ast::check(items_, sema); }
+
+// end stmnt checks
+
+void ObjDecl::add(Sema& sema) const { sema.add(*this); }
+
+void FunctionDecl::add(Sema& sema) const { sema.add(*this); }
 
 } // namespace compiler::ast

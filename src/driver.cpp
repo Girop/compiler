@@ -24,7 +24,14 @@ void Driver::compile()
     {
         auto tu = parser_.parse();
         tu->dump();
+        analyze(*tu);
     }
+      
+}
+
+void Driver::analyze(ast::TranslationUnit& tu)
+{
+    tu.check(sema_);
 }
 
 } // namespace compiler

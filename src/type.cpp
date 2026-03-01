@@ -2,7 +2,7 @@
 #include <algorithm>
 #include <array>
 
-namespace compiler::ast
+namespace compiler
 {
 
 using tokens::Keyword;
@@ -25,23 +25,6 @@ Type::Qualifiers qual(std::vector<tokens::Keyword> const& keywords)
         }
     }
     return quals;
-}
-
-Storage storage(std::vector<tokens::Keyword> const& keywords)
-{
-    Storage storage{ Storage::Unspecified };
-    for (auto& k : keywords)
-    {
-        switch (k)
-        {
-        case Keyword::Extern: storage = Storage::Extern; break;
-        case Keyword::Auto: storage = Storage::Auto; break;
-        case Keyword::Static: storage = Storage::Static; break;
-        case Keyword::Register: storage = Storage::Register; break;
-        default: continue;
-        }
-    }
-    return storage;
 }
 
 class TypeDeductionTable
@@ -173,23 +156,13 @@ BasicType basic_type(std::vector<tokens::Keyword> const& keywords, Loc loc)
 } // namespace
 
 Type::Type(Loc loc, std::vector<tokens::Keyword>&& keywords) :
-    Node(loc),
     quals_{ qual(keywords) },
-    storage_{ storage(keywords) },
-    basic_{ basic_type(keywords, loc) },
+    basic_{ ::compiler::basic_type(keywords, loc) },
     signed_{ std::all_of(keywords.begin(), keywords.end(), [](auto& k) { return k != Keyword::Unsigned; }) }
 {
 }
 
-void Type::set_default_storage(Storage storage)
-{
-    if (storage_ == Storage::Unspecified)
-    {
-        storage_ = storage;
-    }
-}
-
-std::ostream& Type::stream(std::ostream& os) const
+std::string Type::format() const
 {
     std::string type;
 
@@ -206,15 +179,6 @@ std::ostream& Type::stream(std::ostream& os) const
     if (quals_.test(to_underlying(Qualifier::Restrict)))
     {
         type += "restrict ";
-    }
-
-    switch (storage_)
-    {
-    case Storage::Unspecified: REPORT_ICE("Type wihtout set storage");
-    case Storage::Extern: type += "extern "; break;
-    case Storage::Auto: type += "auto "; break;
-    case Storage::Static: type += "static "; break;
-    case Storage::Register: type += "register "; break;
     }
 
     if (!signed_)
@@ -235,7 +199,38 @@ std::ostream& Type::stream(std::ostream& os) const
     case BasicType::Bool: type += "bool "; break;
     case BasicType::Void: type += "void "; break;
     }
-    return os << type;
+
+    return type;
 }
 
-} // namespace compiler::ast
+bool Type::is_artithmetic() const
+{
+    switch (basic_)
+    {
+    case BasicType::SignedChar:
+    case BasicType::ShortInt:
+    case BasicType::Int:
+    case BasicType::LongInt:
+    case BasicType::LongLongInt:
+    case BasicType::Float:
+    case BasicType::Double:
+    case BasicType::LongDouble: return true;
+    default: return false;
+    }
+}
+
+bool Type::is_scalar() const
+{
+    // TODO not precisely
+    return is_artithmetic() || basic_ == BasicType::Bool;
+}
+
+Type Type::implicit_conversion(Loc const& loc [[maybe_unused]], Type const& lhs, Type const& rhs)
+{
+    // TODO
+    // Larger signed integer > smaller signed integer
+    if (lhs.basic_ == rhs.basic_) return Type{ lhs.basic_ };
+    REPORT_ICE("Type conversion error");
+}
+
+} // namespace compiler

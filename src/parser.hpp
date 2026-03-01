@@ -2,7 +2,6 @@
 #include "ast.hpp"
 #include "lexer/lexer.hpp"
 #include "lexer/reflection.hpp"
-#include "type.hpp"
 
 namespace compiler
 {
@@ -10,7 +9,7 @@ namespace compiler
 class Parser
 {
 public:
-    explicit Parser(File const& file) : lexer_{ file } {}
+    explicit Parser(File const& file, Sema& sema) : lexer_{ file }, sema_{ sema } {}
 
     ast::Ptr<ast::TranslationUnit> parse();
 
@@ -24,8 +23,10 @@ private:
     std::vector<ast::DeclOrStmt> items();
     ast::Ptr<ast::CompoundStmt> compound_stmt();
     ast::Ptr<ast::Iden> identifier();
-    ast::Ptr<ast::Type> type();
+    ast::Ptr<ast::TypeDecl> type();
     ast::Ptr<ast::IntLiteral> constant();
+
+    ast::Storage storage(std::vector<tokens::Keyword> const& keywords) const;
 
     template <typename T> bool match(T expected) const
     {
@@ -63,6 +64,7 @@ private:
     std::pair<int8_t, int8_t> binding_power(tokens::Punctuator punct) const;
 
     Lexer lexer_;
+    Sema& sema_;
 };
 
 } // namespace compiler

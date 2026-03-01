@@ -1,27 +1,45 @@
 #pragma once
 #include "ast.hpp"
 #include "sema.fwd.hpp"
-#include <stack>
 #include "type.hpp"
-#include <unordered_map>
 
 namespace compiler
 {
 
-class Sema
+class TypeCamp
 {
-    using EnvStack
-        = std::stack<std::unordered_map<std::string, ast::Declaration const*>>;
-
 public:
-    void add(ast::ObjDecl const&);
-    void add(ast::FunctionDecl const&);
+    TypeCamp();
+
+    Type const* add(Type const&);
+    Type const* get(BasicType) const;
 
 private:
-    void push();
-    void pop();
+    std::vector<std::unique_ptr<Type>> types_;
+};
 
-    EnvStack scope_;
+class Sema
+{
+public:
+    Type const* new_type(Type const& t) { return types_.add(t); }
+    void add(ast::ObjDecl const& obj);
+    void add(ast::FunctionDecl const& f);
+
+    void push() { scope_.objs_.emplace_back(); }
+    void pop() { scope_.objs_.pop_back(); }
+
+    ast::FunctionDecl const& current_fuction();
+    ast::ObjDecl const* lookup(ast::Iden const& iden) const;
+
+    Type const* get_type(BasicType type) const { return types_.get(type); }
+    // TODO after changing the type, reevaluate the value 
+private:
+    struct
+    {
+        std::vector<ast::FunctionDecl const*> functions_;
+        std::vector<std::vector<ast::ObjDecl const*>> objs_;
+    } scope_;
+    TypeCamp types_;
 };
 
 } // namespace compiler

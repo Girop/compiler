@@ -9,7 +9,7 @@ namespace
 
 std::string const_to_string(Token::Value const& val)
 {
-    return std::to_string(std::get<int>(val));
+    return std::to_string(std::get<int64_t>(val));
 }
 
 } // namespace

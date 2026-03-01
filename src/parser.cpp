@@ -1,5 +1,5 @@
 #include "parser.hpp"
-#include "type.hpp"
+#include "sema.hpp"
 #include <cassert>
 
 namespace compiler
@@ -88,7 +88,42 @@ bool Parser::is_type_keyword(tokens::Keyword k) const
     return false;
 }
 
-ast::Ptr<ast::Type> Parser::type()
+ast::Storage Parser::storage(std::vector<tokens::Keyword> const& keywords) const
+{
+    using ast::Storage, tokens::Keyword;
+    Storage strg{ Storage::Unspecified };
+    size_t specifier_count{ 0 };
+    for (auto& k : keywords)
+    {
+        switch (k)
+        {
+        case Keyword::Extern:
+            strg = Storage::Extern;
+            ++specifier_count;
+            break;
+        case Keyword::Auto:
+            strg = Storage::Auto;
+            ++specifier_count;
+            break;
+        case Keyword::Static:
+            strg = Storage::Static;
+            ++specifier_count;
+            break;
+        case Keyword::Register:
+            strg = Storage::Register;
+            ++specifier_count;
+            break;
+        default: continue;
+        }
+    }
+    if (specifier_count > 1)
+    {
+        lexer_.loc().err() << "Mutliple storage specifiers are dissallowed\n";
+    }
+    return strg;
+}
+
+ast::Ptr<ast::TypeDecl> Parser::type()
 {
     std::vector<tokens::Keyword> specifiers;
     auto const loc = lexer_.peek().loc;
@@ -106,7 +141,10 @@ ast::Ptr<ast::Type> Parser::type()
     {
         return nullptr;
     }
-    return std::make_unique<ast::Type>(loc, std::move(specifiers));
+    auto strg = storage(specifiers);
+
+    Type typ{ loc, std::move(specifiers) };
+    return std::make_unique<ast::TypeDecl>(loc, sema_.new_type(typ), strg);
 }
 
 ast::Ptr<ast::Declaration> Parser::declaration()
@@ -122,7 +160,6 @@ ast::Ptr<ast::Declaration> Parser::declaration()
     auto iden = identifier();
     if (match_consume(tokens::Punctuator::LParen))
     {
-        ret_t->set_default_storage(ast::Storage::Extern);
         // TODO Parse parameter list
         std::vector<ast::Ptr<ast::ObjDecl>> args;
         expect(tokens::Punctuator::RParen);
@@ -131,7 +168,6 @@ ast::Ptr<ast::Declaration> Parser::declaration()
                                                    std::move(compound));
     }
 
-    ret_t->set_default_storage(ast::Storage::Auto);
     ast::Ptr<ast::Expr> initalizer{ match_consume(tokens::Punctuator::Equal) ? expr() : nullptr };
     expect(tokens::Punctuator::Semicolon);
     return std::make_unique<ast::ObjDecl>(loc, std::move(ret_t), std::move(iden), std::move(initalizer));
@@ -225,7 +261,7 @@ ast::Ptr<ast::IntLiteral> Parser::constant()
 {
     auto const tok = lexer_.advance();
     assert(tok.tag == tokens::Tag::Constant);
-    return std::make_unique<ast::IntLiteral>(tok.loc, std::get<int>(tok.value));
+    return std::make_unique<ast::IntLiteral>(tok.loc, std::get<int64_t>(tok.value));
 }
 
 ast::Ptr<ast::Expr> Parser::unary_expr()

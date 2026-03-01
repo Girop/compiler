@@ -38,6 +38,7 @@ class Loc
 
 public:
     explicit Loc(std::string_view filename) : filename_{ filename } {}
+
     Loc(std::string_view filename, size_t row, size_t col) : filename_{ filename }, row_{ row }, column_{ col } {}
 
     std::string_view filename() const { return filename_; }
