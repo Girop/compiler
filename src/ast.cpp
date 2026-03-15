@@ -120,7 +120,7 @@ std::ostream& IfStmt::stream(std::ostream& os) const
 std::ostream& ReturnStmt::stream(std::ostream& os) const
 {
     os << "return ";
-    value_->stream(os);
+    expr_->stream(os);
     return os << "\n";
 }
 
@@ -195,7 +195,7 @@ Type const* BinExpr::check(Sema& sema)
 
         Type::implicit_conversion(loc(), *lhs, *rhs);
         // TODO lhs convert rhs to lhs,
-        if (!lhs->is_modifyable_lvalue())
+        if (!lhs->is_modifyable_lvalue())  // TODO shouldn't this also check whether underlying expr is Iden / table access?
         {
             loc().err() << "Cannot assign to non modifyable lvalue\n";
             return type_;
@@ -207,7 +207,11 @@ Type const* BinExpr::check(Sema& sema)
     return type_ = sema.new_type(converted);
 }
 
-Type const* Iden::check(Sema& sema) { return type_ = sema.lookup(*this)->type().type(); }
+Type const* Iden::check(Sema& sema)
+{
+    referenced_ = sema.lookup(*this);
+    return type_ = referenced_->type().type();
+}
 // End expr checks
 // Stmnt checks
 
@@ -215,7 +219,7 @@ void check(std::vector<DeclOrStmt>& items, Sema& sema)
 {
     for (auto& item : items)
     {
-        if (auto* decl = std::get_if<Ptr<Declaration>>(&item); decl != nullptr)
+        if (auto* decl = std::get_if<Ptr<Declaration>>(&item))
         {
             decl->get()->add(sema);
         }
@@ -245,21 +249,21 @@ void ReturnStmt::check(Sema& sema)
     auto& func = sema.current_fuction();
     if (func.type().type()->is_void())
     {
-        if (value_ != nullptr)
+        if (expr_ != nullptr)
         {
-            value_->check(sema);
+            expr_->check(sema);
             loc().err() << "Function declared with \'void\' cannot return a value\n";
             return;
         }
     }
 
-    if (value_ == nullptr)
+    if (expr_ == nullptr)
     {
         loc().err() << "Function should return a value\n";
         return;
     }
 
-    auto ret_expr_t = value_->check(sema);
+    auto ret_expr_t = expr_->check(sema);
     auto converted = Type::implicit_conversion(loc(), *func.type().type(), *ret_expr_t);
     sema.new_type(converted);
 }

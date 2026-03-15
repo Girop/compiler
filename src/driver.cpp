@@ -1,4 +1,5 @@
 #include "driver.hpp"
+#include "codegen.hpp"
 
 namespace compiler
 {
@@ -20,18 +21,24 @@ void Driver::compile()
         lexems();
     }
 
+    auto tu = parser_.parse();
     if (flags_.parse)
     {
-        auto tu = parser_.parse();
         tu->dump();
-        analyze(*tu);
     }
-      
+    analyze(*tu);
+    if (!success()) return;
+
+    Codegen codegen{ *tu };
+    if (flags_.ssa)
+    {
+        auto ssa = codegen.ssa();
+        ssa[0].dump();
+    }
 }
 
-void Driver::analyze(ast::TranslationUnit& tu)
-{
-    tu.check(sema_);
-}
+void Driver::analyze(ast::TranslationUnit& tu) { tu.check(sema_); }
+
+bool Driver::success() const { return !Loc::has_error(); }
 
 } // namespace compiler

@@ -21,6 +21,11 @@ private:
 class Sema
 {
 public:
+    Sema()
+    {
+        scope_.objs_.emplace_back(); // Global scope
+    }
+
     Type const* new_type(Type const& t) { return types_.add(t); }
     void add(ast::ObjDecl const& obj);
     void add(ast::FunctionDecl const& f);
@@ -32,7 +37,7 @@ public:
     ast::ObjDecl const* lookup(ast::Iden const& iden) const;
 
     Type const* get_type(BasicType type) const { return types_.get(type); }
-    // TODO after changing the type, reevaluate the value 
+    // TODO after changing the type, reevaluate the value
 private:
     struct
     {

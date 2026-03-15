@@ -10,6 +10,7 @@ struct Flags
     std::string filename;
     bool lex{ false };
     bool parse{ false };
+    bool ssa{ false };
 };
 
 class Driver
@@ -18,6 +19,7 @@ public:
     explicit Driver(Flags const& flag) : flags_{ flag }, file_{ flag.filename }, parser_{ file_, sema_ } {}
 
     void compile();
+    bool success() const;
 
 private:
     void lexems();

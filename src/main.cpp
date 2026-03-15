@@ -21,6 +21,11 @@ compiler::Flags parse(int argc, char** argv)
             flags.parse = true;
             continue;
         }
+        if (arg == "--ssa")
+        {
+            flags.ssa = true;
+            continue;
+        }
     }
     return flags;
 }
@@ -37,5 +42,11 @@ int main(int argc, char* argv[])
 
     compiler::Driver driver{ flags };
     driver.compile();
-    return 0;
+    
+    if (!driver.success())
+    {
+        std::cerr << "Compilation failed!\n";
+    }
+
+    return driver.success();
 }

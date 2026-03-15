@@ -40,25 +40,25 @@ void Sema::add(ast::FunctionDecl const& func)
 
 ast::ObjDecl const* Sema::lookup(ast::Iden const& iden) const
 {
-
-    auto find_in_scope = [&] (auto& scope) -> ast::ObjDecl const*
+    auto find_in_scope = [&](auto& scope) -> ast::ObjDecl const*
     {
-        auto it = std::find_if(scope.begin(), scope.end(), [&] (auto const* var) { return var->iden_->name() == iden.name();});
+        auto it = std::find_if(scope.begin(), scope.end(),
+                               [&](auto const* var) { return var->iden_->name() == iden.name(); });
         if (it != scope.end())
         {
             return *it;
         }
         return nullptr;
     };
-    
+
     for (auto& scope : scope_.objs_ | std::views::reverse)
     {
-        if (auto found = find_in_scope(scope)) 
+        if (auto found = find_in_scope(scope))
         {
-            return found; 
+            return found;
         }
     }
-    
+
     iden.loc().err() << "Usage of undefined identifier\n";
     return nullptr;
 }

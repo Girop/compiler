@@ -19,3 +19,9 @@ template <typename T, typename Underlying = std::underlying_type_t<T>> constexpr
                   << "\n\tLine: " << __LINE__ << "\n\tMessage: " << MSG << '\n';                                       \
         std::exit(2);                                                                                                  \
     } while (0)
+
+template <typename... T> struct Overload : T...
+{
+    using T::operator()...;
+};
+

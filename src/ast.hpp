@@ -60,6 +60,10 @@ public:
     const Type* check(Sema&) override;
     std::ostream& stream(std::ostream&) const override;
 
+    tokens::Punctuator op() const { return op_; }
+    Expr const& lhs() const { return *lhs_; }
+    Expr const& rhs() const { return *rhs_; }
+
 private:
     tokens::Punctuator op_;
     Ptr<Expr> lhs_;
@@ -73,6 +77,7 @@ public:
 
     const Type* check(Sema&) override;
     std::ostream& stream(std::ostream&) const override;
+    int64_t value() const { return value_; }
 
 private:
     int64_t value_;
@@ -88,8 +93,11 @@ public:
     const Type* check(Sema&) override;
     std::ostream& stream(std::ostream&) const override;
 
+    class ObjDecl const* referenced() const { return referenced_; }
+
 private:
     std::string name_;
+    ObjDecl const* referenced_{ nullptr };
 };
 
 class UnaryExpr : public Expr
@@ -105,6 +113,9 @@ public:
     Type const* check(Sema&) override;
     std::ostream& stream(std::ostream&) const override;
 
+    tokens::Punctuator op() const { return op_; }
+    Expr& expr() const { return *operand_; }
+
 private:
     tokens::Punctuator op_;
     Ptr<Expr> operand_;
@@ -117,6 +128,7 @@ public:
 
     void check(Sema&) override;
     std::ostream& stream(std::ostream&) const override;
+    Expr const& expr() const { return *expr_; }
 
 private:
     Ptr<Expr> expr_;
@@ -135,6 +147,10 @@ public:
 
     void check(Sema&) override;
     std::ostream& stream(std::ostream&) const override;
+
+    Expr const& cond() const { return *cond_; }
+    Stmt const& cons() const { return *cons_; };
+    Stmt const* alt() const { return alt_.get(); };
 
 private:
     Ptr<Expr> cond_;
@@ -156,6 +172,8 @@ class TypeDecl : public Node
 public:
     TypeDecl(Loc loc, Type const* type, Storage storage) : Node(loc), storage_{ storage }, type_{ type } {}
     virtual std::ostream& stream(std::ostream&) const override;
+
+    void set_default_storage(Storage implicit) { storage_ = storage_ == Storage::Unspecified ? implicit : storage_; }
 
     Storage storage() const { return storage_; }
     Type const* type() const { return type_; }
@@ -183,11 +201,15 @@ public:
         iden_{ std::move(iden) },
         init_{ std::move(init) }
     {
+        // TODO this only works for variables inside functions
+        type_->set_default_storage(Storage::Auto);
     }
 
     std::ostream& stream(std::ostream&) const override;
     void add(Sema&) const override;
     TypeDecl const& type() const { return *type_; }
+    Iden const& iden() const { return *iden_; };
+    Expr const* initalizer() const { return init_.get(); }
 
 private:
     Ptr<TypeDecl> type_;
@@ -195,6 +217,7 @@ private:
     Ptr<Expr> init_;
 };
 
+// TODO implement class Item in place of this one
 using DeclOrStmt = std::variant<Ptr<Stmt>, Ptr<Declaration>>;
 
 class CompoundStmt : public Stmt
@@ -204,6 +227,8 @@ public:
 
     std::ostream& stream(std::ostream& os) const override;
     void check(Sema&) override;
+
+    std::vector<DeclOrStmt> const& items() const { return items_; }
 
 private:
     std::vector<DeclOrStmt> items_;
@@ -222,30 +247,35 @@ public:
         args_{ std::move(args) },
         body_{ std::move(body) }
     {
+        return_->set_default_storage(Storage::Extern);
     }
 
     void add(Sema&) const override;
     std::ostream& stream(std::ostream& os) const override;
 
     TypeDecl const& type() const { return *return_; }
+    Iden const& iden() const { return *iden_; }
+    CompoundStmt const& body() const { return *body_; }
 
 private:
     Ptr<TypeDecl> return_;
     Ptr<Iden> iden_;
     std::vector<Ptr<ObjDecl>> args_;
-    Ptr<CompoundStmt> body_;
+    Ptr<CompoundStmt> body_; // TODO could be made optional to mean incomplete type definition
 };
 
 class ReturnStmt : public Stmt
 {
 public:
-    ReturnStmt(Loc loc, Ptr<Expr>&& value) : Stmt(loc), value_{ std::move(value) } {}
+    ReturnStmt(Loc loc, Ptr<Expr>&& value) : Stmt(loc), expr_{ std::move(value) } {}
 
     void check(Sema&) override;
     std::ostream& stream(std::ostream& os) const override;
 
+    Expr const* expr() const { return expr_.get(); }
+
 private:
-    Ptr<Expr> value_;
+    Ptr<Expr> expr_;
 };
 
 class NullStmt : public Stmt
@@ -267,6 +297,7 @@ public:
     }
 
     std::ostream& stream(std::ostream&) const override;
+    std::vector<DeclOrStmt> const& items() const { return items_; }
     void check(Sema&);
 
 private:
