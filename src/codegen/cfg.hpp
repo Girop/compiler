@@ -2,6 +2,7 @@
 #include "ast/ast.hpp"
 #include "inst.hpp"
 #include <unordered_map>
+#include "graph.fwd.hpp"
 
 namespace compiler::codegen
 {
@@ -17,6 +18,8 @@ struct Block
 
 class CFG
 {
+    friend GraphWriter; 
+
 public:
     static CFG construct(ast::FunctionDecl const& func);
 
@@ -41,7 +44,6 @@ public:
     std::vector<Block*> predecessors(Block* block) { return predecessors_[block]; }
 
     void dump() const;
-
 private:
     std::string_view name_;
     std::vector<std::unique_ptr<Block>> blocks_;

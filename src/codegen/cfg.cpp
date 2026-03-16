@@ -1,4 +1,5 @@
 #include "cfg.hpp"
+#include "graph.hpp"
 #include "util/ice.hpp"
 #include "util/visitor.hpp"
 #include <cassert>
@@ -275,10 +276,6 @@ CFG CFG::construct(ast::FunctionDecl const& func)
     return gen.construct();
 }
 
-void CFG::dump() const
-{
-    std::cout << name_ << ":\n";
-    // TODO
-}
+void CFG::dump() const { GraphWriter::dump(*this); }
 
 } // namespace compiler::codegen

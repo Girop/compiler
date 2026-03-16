@@ -9,10 +9,6 @@ int main()
     {
         a = a * 2;
 
-        if (a == 2) 
-        {
-            a = 123;
-        }
     } 
     else 
     {

@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <limits>
 #include <span>
+#include <string>
 #include <vector>
 
 namespace compiler::codegen
@@ -35,20 +36,6 @@ using Iden = size_t;
 
 class Inst
 {
-public:
-    virtual ~Inst() = default;
-
-    Opcode& op() { return op_; }
-    Iden& name() { return name_; }
-    std::span<Inst*> args() { return args_; }
-    Size& type() { return type_; }
-
-    template <typename T> T* as()
-    {
-        static_assert(std::is_base_of_v<Inst, T>, "Invalid downcast");
-        return dynamic_cast<T*>(this);
-    }
-
 protected:
     Inst(Opcode op, Iden name, std::vector<Inst*> const& args = {}, Size type = Size::Int32) :
         op_{ op },
@@ -58,7 +45,29 @@ protected:
     {
     }
 
+public:
+    virtual ~Inst() = default;
+
+    Opcode& op() { return op_; }
+    Opcode const& op() const { return op_; }
+
+    Iden& name() { return name_; }
+    Iden const& name() const { return name_; }
+
+    std::span<Inst*> args() { return args_; }
+    Size& type() { return type_; }
+
+    template <typename T> T* as()
+    {
+        static_assert(std::is_base_of_v<Inst, T>, "Invalid downcast");
+        return dynamic_cast<T*>(this);
+    }
+
+    std::string to_string() const;
+
 private:
+    virtual std::string op_string() const = 0;
+
     Opcode op_;
     Iden name_;
     Size type_;
@@ -71,6 +80,9 @@ class MathInst : public Inst
 {
 public:
     explicit MathInst(Iden name, Opcode op, Inst* lhs, Inst* rhs) : Inst{ op, name, { lhs, rhs }, Size::Int32 } {}
+
+private:
+    std::string op_string() const override;
 };
 
 class ConstInst : public Inst
@@ -84,6 +96,8 @@ public:
     int64_t value() { return value_; }
 
 private:
+    std::string op_string() const override;
+
     int64_t value_;
 };
 
@@ -97,6 +111,8 @@ public:
     void append_operand(Inst* operand) { args_.emplace_back(operand); }
 
 private:
+    std::string op_string() const override;
+
     Iden shadow_;
 };
 
@@ -112,13 +128,9 @@ public:
     Iden shadow() { return shadow_; }
 
 private:
-    Iden shadow_;
-};
+    std::string op_string() const override;
 
-class Jump : public Inst
-{
-public:
-    explicit Jump(Iden name) : Inst{ Opcode::Jump, name, {}, Size::Void } {}
+    Iden shadow_;
 };
 
 class Ret : public Inst
@@ -135,24 +147,43 @@ public:
               Size::Void }
     {
     }
+private:
+    std::string op_string() const override;
+};
+
+class Jump : public Inst
+{
+public:
+    explicit Jump(Iden name) : Inst{ Opcode::Jump, name, {}, Size::Void } {}
+private:
+     std::string op_string() const override;
 };
 
 class JumpIf : public Inst
 {
 public:
     explicit JumpIf(Iden name, Inst* cond) : Inst{ Opcode::Jump, name, { cond }, Size::Void } {}
+
+private:
+     std::string op_string() const override;
 };
 
 class Set : public Inst
 {
 public:
     explicit Set(Iden name, Inst* value) : Inst{ Opcode::Set, name, { value }, value->type() } {}
+
+private:
+     std::string op_string() const override;
 };
 
 class Unary : public Inst
 {
 public:
     explicit Unary(Iden name, Opcode op, Inst* arg) : Inst{ op, name, { arg }, Size::Int32 } {}
+
+private:
+     std::string op_string() const override;
 };
 
 } // namespace compiler::codegen
