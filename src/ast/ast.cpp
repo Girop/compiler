@@ -2,6 +2,7 @@
 #include "lexer/reflection.hpp"
 #include "sema.hpp"
 #include "type.hpp"
+#include "util/ice.hpp"
 #include <limits>
 
 namespace compiler::ast
@@ -195,7 +196,8 @@ Type const* BinExpr::check(Sema& sema)
 
         Type::implicit_conversion(loc(), *lhs, *rhs);
         // TODO lhs convert rhs to lhs,
-        if (!lhs->is_modifyable_lvalue())  // TODO shouldn't this also check whether underlying expr is Iden / table access?
+        if (!lhs->is_modifyable_lvalue()) // TODO shouldn't this also check whether underlying expr is Iden / table
+                                          // access?
         {
             loc().err() << "Cannot assign to non modifyable lvalue\n";
             return type_;

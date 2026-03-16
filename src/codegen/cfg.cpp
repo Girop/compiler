@@ -1,8 +1,10 @@
-#include "ssa.hpp"
+#include "cfg.hpp"
+#include "util/ice.hpp"
+#include "util/visitor.hpp"
 #include <cassert>
 #include <optional>
 
-namespace compiler::ssa
+namespace compiler::codegen
 {
 
 class NameCounter
@@ -277,7 +279,6 @@ void CFG::dump() const
 {
     std::cout << name_ << ":\n";
     // TODO
-
 }
 
-} // namespace compiler::ssa
+} // namespace compiler::codegen

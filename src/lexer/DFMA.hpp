@@ -1,5 +1,5 @@
 #pragma once
-#include "utils.hpp"
+#include "util/underlying.hpp"
 #include <array>
 #include <cstdint>
 #include <limits>

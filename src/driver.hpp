@@ -1,6 +1,6 @@
 #pragma once
-#include "parser.hpp"
-#include "sema.hpp"
+#include "ast/parser.hpp"
+#include "ast/sema.hpp"
 
 namespace compiler
 {

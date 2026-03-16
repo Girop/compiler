@@ -1,9 +1,9 @@
 #pragma once
-#include "ast.hpp"
+#include "ast/ast.hpp"
 #include "inst.hpp"
 #include <unordered_map>
 
-namespace compiler::ssa
+namespace compiler::codegen
 {
 
 struct Block

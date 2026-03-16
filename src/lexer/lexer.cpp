@@ -1,4 +1,5 @@
 #include "lexer.hpp"
+#include "util/ice.hpp"
 #include <cassert>
 #include <charconv>
 #include <unordered_map>

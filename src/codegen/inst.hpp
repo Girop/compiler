@@ -5,7 +5,7 @@
 #include <span>
 #include <vector>
 
-namespace compiler::ssa
+namespace compiler::codegen
 {
 
 enum class Opcode : uint8_t
@@ -155,4 +155,4 @@ public:
     explicit Unary(Iden name, Opcode op, Inst* arg) : Inst{ op, name, { arg }, Size::Int32 } {}
 };
 
-} // namespace compiler::ssa
+} // namespace compiler::codegen

@@ -1,5 +1,6 @@
 #include "parser.hpp"
 #include "sema.hpp"
+#include "util/ice.hpp"
 #include <cassert>
 
 namespace compiler

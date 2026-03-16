@@ -1,5 +1,5 @@
 #include "driver.hpp"
-#include "codegen.hpp"
+#include "codegen/codegen.hpp"
 
 namespace compiler
 {

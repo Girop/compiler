@@ -1,6 +1,6 @@
 #pragma once
 #include "lexer/token.hpp"
-#include "utils.hpp"
+#include "util/underlying.hpp"
 #include <bitset>
 #include <climits>
 #include <cstdint>
@@ -11,16 +11,16 @@ namespace compiler
 
 enum class BasicType : uint8_t
 {
-    SignedChar,  // int8_t
-    ShortInt,    // int16_t
-    Int,         // int32_t
-    LongInt,     // int64_t
-    LongLongInt, // Also int64_t on linux
-    Float,       // f32
-    Double,      // f64
-    LongDouble,  // f128
-    Bool,        // bool
-    Void,        // Void
+    SignedChar,
+    ShortInt,
+    Int,
+    LongInt,
+    LongLongInt,
+    Float,
+    Double,
+    LongDouble,
+    Bool,
+    Void,
 };
 
 enum class Qualifier : uint8_t
@@ -46,12 +46,10 @@ public:
     bool is_artithmetic() const;
     bool is_scalar() const;
     bool is_void() const { return basic_ == BasicType::Void; }
-    bool is_modifyable_lvalue() const 
-    {
-        return !is_void() && quals_.test(to_underlying(Qualifier::Const));
-    }
+    bool is_modifyable_lvalue() const { return !is_void() && quals_.test(to_underlying(Qualifier::Const)); }
 
     static Type implicit_conversion(Loc const& loc, Type const& lhs, Type const& rhs);
+
 private:
     Qualifiers quals_;
     BasicType basic_;
