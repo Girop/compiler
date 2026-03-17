@@ -8,7 +8,6 @@ int main()
     if (a / 8 == 2)
     {
         a = a * 2;
-
     } 
     else 
     {

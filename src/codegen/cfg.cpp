@@ -1,9 +1,9 @@
 #include "cfg.hpp"
-#include "graph.hpp"
 #include "util/ice.hpp"
-#include "util/visitor.hpp"
 #include <cassert>
 #include <optional>
+#include "cfgGraph.hpp"
+#include <fstream>
 
 namespace compiler::codegen
 {
@@ -17,7 +17,6 @@ private:
     size_t counter_{ 0 };
 };
 
-// TODO SSA text format
 class SSAGenerator
 {
 public:
@@ -26,12 +25,7 @@ public:
     CFG construct()
     {
         auto starting = cfg.insert();
-
-        for (auto& item : func_.body().items())
-        {
-            on_item(starting, item);
-        }
-
+        on_items(starting, func_.body().items());
         return std::move(cfg);
     }
 
@@ -43,17 +37,26 @@ private:
         return inst.get();
     }
 
-    // Same as in on_stmt, TODO factor out the definitions and statements in the AST
-    Block* on_item(Block* block, ast::DeclOrStmt const& item)
+    Block* on_items(Block* block, ast::Items const& items)
     {
-        return std::visit(Overload{ [&](ast::Ptr<ast::Declaration> const& decl) -> Block*
-                                    {
-                                        auto obj = dynamic_cast<ast::ObjDecl const*>(decl.get());
-                                        on_decl(block, *obj);
-                                        return nullptr;
-                                    },
-                                    [&](ast::Ptr<ast::Stmt> const& decl) { return on_stmt(block, *decl); } },
-                          item);
+        for (auto& item : items.items())
+        {
+            block = on_item(block, *item);
+        }
+        return block;
+    }
+
+    Block* on_item(Block* block, ast::Item const& item)
+    {
+        if (auto decl = item.decl())
+        {
+            on_decl(block, dynamic_cast<ast::ObjDecl const&>(*decl));
+        }
+        else
+        {
+            block = on_stmt(block, *item.stmt());
+        }
+        return block;
     }
 
     Block* on_if_branch(Block* parent, ast::Stmt const* stmt)
@@ -78,7 +81,6 @@ private:
         auto exit = cfg.insert();
         cfg.add_successor(lhs, exit);
         cfg.add_successor(rhs, exit);
-        seal(exit);
 
         return exit;
     }
@@ -93,13 +95,7 @@ private:
         }
         else if (auto compound = dynamic_cast<ast::CompoundStmt const*>(&stmt))
         {
-            Block* last = block;
-            for (auto& item : compound->items())
-            {
-                auto possibly_last = on_item(last, item);
-                last = possibly_last ? possibly_last : last;
-            }
-            return last;
+            return on_items(block, compound->items());
         }
         else if (auto ifstmt = dynamic_cast<ast::IfStmt const*>(&stmt))
         {
@@ -139,7 +135,7 @@ private:
 
         if (auto bin = dynamic_cast<ast::BinExpr const*>(&expr))
         {
-            if (math_op(bin->op()))
+            if (math_op(bin->op()).has_value())
             {
                 return on_math(block, *bin);
             }
@@ -170,8 +166,8 @@ private:
     Inst* on_assign(Block* block, ast::Iden const* iden, ast::Expr const& rhs)
     {
         auto rhs_inst = on_expr(block, rhs);
-        write_var(iden->referenced(), block, rhs_inst); // TODO this lack of relation to 'emit' looks suspicious
-        return emit<Set>(block, rhs_inst);
+        write_var(iden->referenced(), block, rhs_inst);
+        return emit<Set>(block, read_variable(iden->referenced(), block));
     }
 
     std::optional<Opcode> math_op(tokens::Punctuator punct) const
@@ -190,7 +186,8 @@ private:
     void on_decl(Block* block, ast::ObjDecl const& decl)
     {
         if (decl.initalizer() == nullptr) return;
-        on_assign(block, &decl.iden(), *decl.initalizer());
+        Inst* init = on_expr(block, *decl.initalizer());
+        write_var(decl.iden().referenced(), block, init);
     }
 
     Inst* read_variable(ast::ObjDecl const* var, Block* block)
@@ -237,7 +234,8 @@ private:
         {
             phi->append_operand(read_variable(var, pred));
         }
-        return remove_trivial_phi(phi);
+        // TODO return remove_trivial_phi(phi);
+        return phi;
     }
 
     Inst* remove_trivial_phi(Phi* phi)
@@ -255,6 +253,7 @@ private:
 
     void seal(Block* block)
     {
+        assert(!block->sealed);
         for (auto [var, phi] : incomplete_phis[block])
         {
             add_phi_operands(block, var, phi);
@@ -276,6 +275,19 @@ CFG CFG::construct(ast::FunctionDecl const& func)
     return gen.construct();
 }
 
-void CFG::dump() const { GraphWriter::dump(*this); }
+CFG::~CFG()
+{
+    // assert(std::all_of(blocks_.begin(), blocks_.end(), [](auto& b) { return b->sealed; }));
+    // assert(std::all_of(blocks_.begin(), blocks_.end(), [](auto& b) { return b->filled; }));
+}
+
+void CFG::dump() const 
+{
+    auto filename = std::format(".cfg.{}.dot", name_);
+    std::ofstream file(filename, std::ios::out);
+    graph::CfgGraphAdapter a {*this};
+    return graph::GraphWriter<graph::CfgGraphAdapter>::dump(file, a);
+    
+}
 
 } // namespace compiler::codegen

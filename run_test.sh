@@ -1,3 +1,3 @@
 #!/bin/bash
 
-./build/compiler --lext test.c
+(cd build && ninja compiler) && ./build/compiler --ssa test.c && xdot cfg.main.dot

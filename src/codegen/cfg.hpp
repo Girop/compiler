@@ -2,7 +2,7 @@
 #include "ast/ast.hpp"
 #include "inst.hpp"
 #include <unordered_map>
-#include "graph.fwd.hpp"
+#include "cfgGraph.fwd.hpp"
 
 namespace compiler::codegen
 {
@@ -18,10 +18,11 @@ struct Block
 
 class CFG
 {
-    friend GraphWriter; 
+    friend graph::CfgGraphAdapter;
 
 public:
     static CFG construct(ast::FunctionDecl const& func);
+    ~CFG();
 
     explicit CFG(std::string_view name) : name_{ name } {}
 

@@ -20,7 +20,7 @@ private:
     ast::Ptr<ast::Expr> expr(int8_t min_bp = 0);
     ast::Ptr<ast::Stmt> statement();
     ast::Ptr<ast::Stmt> selection_statement();
-    std::vector<ast::DeclOrStmt> items();
+    ast::Ptr<ast::Items> items();
     ast::Ptr<ast::CompoundStmt> compound_stmt();
     ast::Ptr<ast::Iden> identifier();
     ast::Ptr<ast::TypeDecl> type();

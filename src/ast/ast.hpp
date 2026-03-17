@@ -217,21 +217,49 @@ private:
     Ptr<Expr> init_;
 };
 
-// TODO implement class Item in place of this one
-using DeclOrStmt = std::variant<Ptr<Stmt>, Ptr<Declaration>>;
+class Item : public Node
+{
+public:
+    explicit Item(Ptr<Declaration>&& decl) : Node(decl->loc()), value_{ std::move(decl) } {}
+    explicit Item(Ptr<Stmt>&& stmt) : Node(stmt->loc()), value_{ std::move(stmt) } {}
+
+    Stmt const* stmt() const { return dynamic_cast<Stmt const*>(value_.get()); }
+    Stmt* stmt() { return dynamic_cast<Stmt*>(value_.get()); }
+    Declaration const* decl() const { return dynamic_cast<Declaration const*>(value_.get()); }
+    Declaration* decl() { return dynamic_cast<Declaration*>(value_.get()); }
+
+    std::ostream& stream(std::ostream& os) const override;
+    void check(Sema&);
+
+private:
+    Ptr<Node> value_;
+};
+
+class Items : public Node
+{
+public:
+    explicit Items(Loc loc, std::vector<Ptr<Item>>&& itms) : Node(loc), items_{ std::move(itms) } {}
+
+    std::vector<Ptr<Item>> const& items() const { return items_; }
+    std::ostream& stream(std::ostream& os) const override;
+    void check(Sema&);
+
+private:
+    std::vector<Ptr<Item>> items_;
+};
 
 class CompoundStmt : public Stmt
 {
 public:
-    explicit CompoundStmt(Loc loc, std::vector<DeclOrStmt>&& itms) : Stmt(loc), items_{ std::move(itms) } {}
+    explicit CompoundStmt(Loc loc, Ptr<Items>&& itms) : Stmt(loc), items_(std::move(itms)) {}
 
     std::ostream& stream(std::ostream& os) const override;
-    void check(Sema&) override;
+    void check(Sema& sema) override;
 
-    std::vector<DeclOrStmt> const& items() const { return items_; }
+    Items const& items() const { return *items_; }
 
 private:
-    std::vector<DeclOrStmt> items_;
+    Ptr<Items> items_;
 };
 
 class FunctionDecl : public Declaration
@@ -290,18 +318,16 @@ public:
 class TranslationUnit : public Node
 {
 public:
-    TranslationUnit(std::string_view filename, std::vector<DeclOrStmt>&& items) :
-        Node(Loc{ filename }),
-        items_{ std::move(items) }
+    TranslationUnit(std::string_view filename, Ptr<Items>&& items) : Node(Loc{ filename }), items_{ std::move(items) }
     {
     }
 
     std::ostream& stream(std::ostream&) const override;
-    std::vector<DeclOrStmt> const& items() const { return items_; }
+    Ptr<Items> const& items() const { return items_; }
     void check(Sema&);
 
 private:
-    std::vector<DeclOrStmt> items_;
+    Ptr<Items> items_;
 };
 
 } // namespace compiler::ast

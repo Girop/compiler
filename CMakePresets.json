@@ -12,7 +12,7 @@
             "generator": "Ninja",
             "binaryDir": "${sourceDir}/build",
             "cacheVariables": {
-                "CMAKE_CXX_FLAGS": "-Og -ggdb3 -Wall -Wextra -Wfloat-equal -Wshadow -Wstrict-overflow=5 -Wconversion -Werror -Wsuggest-override"
+                "CMAKE_CXX_FLAGS": "-Og -ggdb3 -Wall -Wextra -Wfloat-equal -Wshadow -Wstrict-overflow=4 -Werror -Wsuggest-override"
             }
         },
         {

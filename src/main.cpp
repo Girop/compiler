@@ -48,5 +48,5 @@ int main(int argc, char* argv[])
         std::cerr << "Compilation failed!\n";
     }
 
-    return driver.success();
+    return !driver.success();
 }

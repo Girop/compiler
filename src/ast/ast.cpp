@@ -13,12 +13,6 @@ namespace compiler::ast
 namespace
 {
 
-std::ostream& stream(std::ostream& os, DeclOrStmt const& item)
-{
-    auto format = [&os](auto const& i) -> std::ostream& { return i->stream(os); };
-    return std::visit(format, item);
-}
-
 constexpr bool is_assign_op(tokens::Punctuator op)
 {
     using tokens::Punctuator;
@@ -42,11 +36,19 @@ constexpr bool is_assign_op(tokens::Punctuator op)
 
 } // namespace
 
-std::ostream& TranslationUnit::stream(std::ostream& os) const
+std::ostream& Item::stream(std::ostream& os) const
 {
-    for (auto const& item : items_)
+    value_->stream(os);
+    return os;
+}
+
+std::ostream& TranslationUnit::stream(std::ostream& os) const { return items_->stream(os); }
+
+std::ostream& Items::stream(std::ostream& os) const
+{
+    for (auto& item : items_)
     {
-        ::compiler::ast::stream(os, item);
+        item->stream(os);
     }
     return os;
 }
@@ -54,10 +56,7 @@ std::ostream& TranslationUnit::stream(std::ostream& os) const
 std::ostream& CompoundStmt::stream(std::ostream& os) const
 {
     os << "{\n";
-    for (auto const& item : items_)
-    {
-        ::compiler::ast::stream(os, item);
-    }
+    items_->stream(os);
     os << "}\n";
     return os;
 }
@@ -217,19 +216,23 @@ Type const* Iden::check(Sema& sema)
 // End expr checks
 // Stmnt checks
 
-void check(std::vector<DeclOrStmt>& items, Sema& sema)
+void Items::check(Sema& sema)
 {
-    for (auto& item : items)
+    for (auto& item : items_)
     {
-        if (auto* decl = std::get_if<Ptr<Declaration>>(&item))
-        {
-            decl->get()->add(sema);
-        }
-        else
-        {
-            auto& stmt = std::get<Ptr<Stmt>>(item);
-            stmt->check(sema);
-        }
+        item->check(sema);
+    }
+}
+
+void Item::check(Sema& sema)
+{
+    if (auto st = stmt())
+    {
+        st->check(sema);
+    }
+    else
+    {
+        decl()->add(sema);
     }
 }
 
@@ -244,7 +247,7 @@ void IfStmt::check(Sema& sema)
     }
 }
 
-void CompoundStmt::check(Sema& sema) { ast::check(items_, sema); }
+void CompoundStmt::check(Sema& sema) { items_->check(sema); }
 
 void ReturnStmt::check(Sema& sema)
 {
@@ -270,7 +273,7 @@ void ReturnStmt::check(Sema& sema)
     sema.new_type(converted);
 }
 
-void TranslationUnit::check(Sema& sema) { ast::check(items_, sema); }
+void TranslationUnit::check(Sema& sema) { items_->check(sema); }
 
 // end stmnt checks
 

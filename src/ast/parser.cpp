@@ -233,20 +233,26 @@ ast::Ptr<ast::Stmt> Parser::statement()
     return std::make_unique<ast::ExprStmt>(tok.loc, std::move(exp));
 }
 
-std::vector<ast::DeclOrStmt> Parser::items()
+ast::Ptr<ast::Items> Parser::items()
 {
-    std::vector<ast::DeclOrStmt> items;
-    while (!match(tokens::Punctuator::RBrace) && !match(tokens::Tag::EoF))
+    Loc loc{ lexer_.loc() };
+    auto get_item = [&]() -> ast::Ptr<ast::Item>
     {
         auto const tok = lexer_.peek();
         if (auto k = std::get_if<tokens::Keyword>(&tok.value); k != nullptr && is_type_keyword(*k))
         {
-            items.emplace_back(declaration());
-            continue;
+            return std::make_unique<ast::Item>(declaration());
         }
-        items.emplace_back(statement());
+        return std::make_unique<ast::Item>(statement());
+    };
+
+    std::vector<ast::Ptr<ast::Item>> items;
+    while (!match(tokens::Punctuator::RBrace) && !match(tokens::Tag::EoF))
+    {
+        items.emplace_back(get_item());
     }
-    return items;
+
+    return std::make_unique<ast::Items>(loc, std::move(items));
 }
 
 ast::Ptr<ast::CompoundStmt> Parser::compound_stmt()

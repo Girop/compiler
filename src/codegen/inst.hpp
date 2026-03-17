@@ -147,6 +147,7 @@ public:
               Size::Void }
     {
     }
+
 private:
     std::string op_string() const override;
 };
@@ -155,8 +156,9 @@ class Jump : public Inst
 {
 public:
     explicit Jump(Iden name) : Inst{ Opcode::Jump, name, {}, Size::Void } {}
+
 private:
-     std::string op_string() const override;
+    std::string op_string() const override;
 };
 
 class JumpIf : public Inst
@@ -165,7 +167,7 @@ public:
     explicit JumpIf(Iden name, Inst* cond) : Inst{ Opcode::Jump, name, { cond }, Size::Void } {}
 
 private:
-     std::string op_string() const override;
+    std::string op_string() const override;
 };
 
 class Set : public Inst
@@ -174,7 +176,7 @@ public:
     explicit Set(Iden name, Inst* value) : Inst{ Opcode::Set, name, { value }, value->type() } {}
 
 private:
-     std::string op_string() const override;
+    std::string op_string() const override;
 };
 
 class Unary : public Inst
@@ -183,7 +185,7 @@ public:
     explicit Unary(Iden name, Opcode op, Inst* arg) : Inst{ op, name, { arg }, Size::Int32 } {}
 
 private:
-     std::string op_string() const override;
+    std::string op_string() const override;
 };
 
 } // namespace compiler::codegen
