@@ -4,19 +4,19 @@
 #include "graph.hpp"
 #include <algorithm>
 
-namespace compiler::graph
+namespace compiler::cfg
 {
 
-class CfgGraphAdapter
+class GraphAdapter
 {
 public:
-    explicit CfgGraphAdapter(codegen::CFG const& cfg) : data_{ cfg } {}
+    explicit GraphAdapter(codegen::CFG const& cfg) : data_{ cfg } {}
 
     std::string name() const { return std::format("CFG_{}", data_.name()); }
 
-    std::vector<Edge> edges() const
+    std::vector<graph::Edge> edges() const
     {
-        std::vector<Edge> edges;
+        std::vector<graph::Edge> edges;
 
         auto get_idx = [&](auto* bb) -> size_t
         {
@@ -39,16 +39,17 @@ public:
         return edges;
     }
 
-    std::vector<Vertex> vertices() const
+    std::vector<graph::Vertex> vertices() const
     {
-        std::vector<Vertex> vertices;
+        std::vector<graph::Vertex> vertices;
 
-        size_t idx{0};
+        size_t idx{ 0 };
         for (auto& bb : data_.blocks_)
         {
             std::string label;
             for (auto& ins : bb->ins)
             {
+                if (ins->op() == codegen::Opcode::Nop) continue;
                 label += ins->to_string();
                 label += "\\l";
             }
@@ -64,4 +65,4 @@ private:
     codegen::CFG const& data_;
 };
 
-} // namespace compiler::graph
+} // namespace compiler::cfg

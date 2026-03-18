@@ -1,8 +1,8 @@
 #pragma once
 #include "ast/ast.hpp"
+#include "cfgGraph.fwd.hpp"
 #include "inst.hpp"
 #include <unordered_map>
-#include "cfgGraph.fwd.hpp"
 
 namespace compiler::codegen
 {
@@ -13,12 +13,12 @@ struct Block
     std::vector<Block*> successors;
     bool filled{ false };
     bool sealed{ false };
-
 };
 
 class CFG
 {
-    friend graph::CfgGraphAdapter;
+    // TODO this a signal that a refactor of CFG/Block would be useful
+    friend cfg::GraphAdapter;
 
 public:
     static CFG construct(ast::FunctionDecl const& func);
@@ -44,11 +44,15 @@ public:
 
     std::vector<Block*> predecessors(Block* block) { return predecessors_[block]; }
 
+
+    std::vector<Inst*> users(Inst* inst);
+
     void dump() const;
+
 private:
     std::string_view name_;
     std::vector<std::unique_ptr<Block>> blocks_;
     std::unordered_map<Block*, std::vector<Block*>> predecessors_;
 };
 
-} // namespace compiler::ssa
+} // namespace compiler::codegen

@@ -1,6 +1,6 @@
 #pragma once
 
-namespace compiler::graph
+namespace compiler::cfg
 {
-class CfgGraphAdapter;
+class GraphAdapter;
 } // namespace compiler::graph

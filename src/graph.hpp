@@ -46,7 +46,7 @@ private:
         for (auto& [idx, label] : verticies)
         {
             res += std::format("{} [label=\"{}\"]", idx, label);
-            res += "\n";
+            res += "\n\t";
         }
 
         return res;
@@ -58,7 +58,7 @@ private:
         std::string res;
         for (auto& [from, to] : edges)
         {
-            res += std::format("{} -> {}", from, to);
+            res += std::format("{} -> {}\n\t", from, to);
         }
         return res;
     }

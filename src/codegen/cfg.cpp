@@ -1,9 +1,9 @@
 #include "cfg.hpp"
+#include "cfgGraph.hpp"
 #include "util/ice.hpp"
 #include <cassert>
-#include <optional>
-#include "cfgGraph.hpp"
 #include <fstream>
+#include <optional>
 
 namespace compiler::codegen
 {
@@ -25,7 +25,8 @@ public:
     CFG construct()
     {
         auto starting = cfg.insert();
-        on_items(starting, func_.body().items());
+        Block* last = on_items(starting, func_.body().items());
+        if (!last->sealed) seal(last); //
         return std::move(cfg);
     }
 
@@ -71,9 +72,10 @@ private:
 
     Block* on_if(Block* block, ast::IfStmt const& ifstmt)
     {
-        auto cond = on_expr(block, ifstmt.cond());
         seal(block);
+        auto cond = on_expr(block, ifstmt.cond());
         emit<JumpIf>(block, cond);
+        block->filled = true;
 
         Block* lhs = on_if_branch(block, &ifstmt.cons());
         Block* rhs = on_if_branch(block, ifstmt.alt());
@@ -103,15 +105,7 @@ private:
         }
         else if (auto retstmt = dynamic_cast<ast::ReturnStmt const*>(&stmt))
         {
-            Inst* retval{ nullptr };
-            if (retstmt->expr())
-            {
-                retval = on_expr(block, *retstmt->expr());
-            }
-            emit<Ret>(block, retval);
-            seal(block);
-            block->filled = true;
-            return block;
+            return on_return(block, retstmt);
         }
         else if (dynamic_cast<ast::NullStmt const*>(&stmt))
         {
@@ -120,9 +114,21 @@ private:
         REPORT_ICE("Unhandled statement");
     }
 
+    Block* on_return(Block* block, ast::ReturnStmt const* ret)
+    {
+        seal(block);
+        Inst* retval{ nullptr };
+        if (ret->expr())
+        {
+            retval = on_expr(block, *ret->expr());
+        }
+        emit<Ret>(block, retval);
+        block->filled = true;
+        return block;
+    }
+
     Inst* on_expr(Block* block, ast::Expr const& expr)
     {
-        // Only accesses, the write to should be handled in BinExpr
         if (auto iden = dynamic_cast<ast::Iden const*>(&expr))
         {
             return read_variable(iden->referenced(), block);
@@ -143,7 +149,7 @@ private:
             assert(bin->op() == tokens::Punctuator::Equal);
             auto iden = dynamic_cast<ast::Iden const*>(&bin->lhs());
             assert(iden);
-            return on_assign(block, iden, bin->lhs());
+            return on_assign(block, iden, bin->rhs());
         }
 
         if (auto un = dynamic_cast<ast::UnaryExpr const*>(&expr))
@@ -165,9 +171,9 @@ private:
 
     Inst* on_assign(Block* block, ast::Iden const* iden, ast::Expr const& rhs)
     {
-        auto rhs_inst = on_expr(block, rhs);
-        write_var(iden->referenced(), block, rhs_inst);
-        return emit<Set>(block, read_variable(iden->referenced(), block));
+        auto value = on_expr(block, rhs);
+        write_var(iden->referenced(), block, value);
+        return value;
     }
 
     std::optional<Opcode> math_op(tokens::Punctuator punct) const
@@ -234,8 +240,7 @@ private:
         {
             phi->append_operand(read_variable(var, pred));
         }
-        // TODO return remove_trivial_phi(phi);
-        return phi;
+        return remove_trivial_phi(phi);
     }
 
     Inst* remove_trivial_phi(Phi* phi)
@@ -247,8 +252,20 @@ private:
             if (same != nullptr) return phi;
             same = op;
         }
-        // TODO rest of the algo
-        return phi;
+        if (same == nullptr) REPORT_ICE("Unreachable phi");
+
+        auto phi_users = cfg.users(phi);
+        replace(phi, same);
+        invalidate(phi);
+
+        for (auto* user : phi_users)
+        {
+            if (user->op() == Opcode::Phi)
+            {
+                remove_trivial_phi(user->as<Phi>());
+            }
+        }
+        return same;
     }
 
     void seal(Block* block)
@@ -261,6 +278,19 @@ private:
         block->sealed = true;
     }
 
+    void invalidate(Inst* inst)
+    {
+        inst->op() = Opcode::Nop;
+    }
+
+    void replace(Inst* replaced, Inst* with)
+    {
+        for (auto* user : cfg.users(replaced))
+        {
+            user->replace(replaced, with);
+        }
+    }
+
     ast::FunctionDecl const& func_;
     CFG cfg{ func_.iden().name() };
     NameCounter names_;
@@ -268,6 +298,23 @@ private:
     std::unordered_map<Block*, std::unordered_map<ast::ObjDecl const*, Phi*>> incomplete_phis;
     std::unordered_map<ast::ObjDecl const*, std::unordered_map<Block*, Inst*>> current_defs;
 };
+
+std::vector<Inst*> CFG::users(Inst* inst)
+{
+    std::vector<Inst*> users;
+    for (auto& bb : blocks_)
+    {
+        for (auto& ins : bb->ins)
+        {
+            auto it = std::find(ins->args().begin(), ins->args().end(), inst);
+            if (it != ins->args().end())
+            {
+                users.emplace_back(ins.get());
+            }
+        }
+    }
+    return users;
+}
 
 CFG CFG::construct(ast::FunctionDecl const& func)
 {
@@ -277,17 +324,17 @@ CFG CFG::construct(ast::FunctionDecl const& func)
 
 CFG::~CFG()
 {
-    // assert(std::all_of(blocks_.begin(), blocks_.end(), [](auto& b) { return b->sealed; }));
-    // assert(std::all_of(blocks_.begin(), blocks_.end(), [](auto& b) { return b->filled; }));
+    assert(std::all_of(blocks_.begin(), blocks_.end(), [](auto& b) { return b->filled; }));
+    assert(std::all_of(blocks_.begin(), blocks_.end(), [](auto& b) { return b->sealed; }));
 }
 
-void CFG::dump() const 
+void CFG::dump() const
 {
     auto filename = std::format(".cfg.{}.dot", name_);
     std::ofstream file(filename, std::ios::out);
-    graph::CfgGraphAdapter a {*this};
-    return graph::GraphWriter<graph::CfgGraphAdapter>::dump(file, a);
-    
+    assert(file.is_open());
+    cfg::GraphAdapter a{ *this };
+    return graph::GraphWriter<cfg::GraphAdapter>::dump(file, a);
 }
 
 } // namespace compiler::codegen

@@ -11,6 +11,7 @@ namespace compiler::codegen
 
 enum class Opcode : uint8_t
 {
+    Nop,
     JumpIf,
     Jump,
     Phi,
@@ -25,6 +26,28 @@ enum class Opcode : uint8_t
     Cmp,
     LogicalNegate,
 };
+
+constexpr std::string_view op_string(Opcode op)
+{
+    switch (op)
+    {
+    case Opcode::JumpIf: return "JumpIf";
+    case Opcode::Jump: return "Jump";
+    case Opcode::Phi: return "Phi";
+    case Opcode::Upsilon: return "Upsilon";
+    case Opcode::Ret: return "Ret";
+    case Opcode::Constant: return "Constant";
+    case Opcode::Add: return "Add";
+    case Opcode::Sub: return "Sub";
+    case Opcode::Mul: return "Mul";
+    case Opcode::Div: return "Div";
+    case Opcode::Set: return "Set";
+    case Opcode::Cmp: return "Cmp";
+    case Opcode::LogicalNegate: return "LogicalNegate";
+    case Opcode::Nop: return "Nop";
+    }
+    return "<Unknown>";
+}
 
 enum class Size
 {
@@ -56,6 +79,7 @@ public:
 
     std::span<Inst*> args() { return args_; }
     Size& type() { return type_; }
+    Size const& type() const { return type_; }
 
     template <typename T> T* as()
     {
@@ -63,11 +87,24 @@ public:
         return dynamic_cast<T*>(this);
     }
 
-    std::string to_string() const;
+    void replace(Inst* replaced, Inst* with)
+    {
+        std::vector<Inst*> new_args;
+        for (auto* item : args_)
+        {
+            if (item == replaced) 
+            {
+                new_args.emplace_back(with);
+                continue;
+            }
+            new_args.emplace_back(item);
+        }
+        args_ = new_args;
+    }
+
+    virtual std::string to_string() const;
 
 private:
-    virtual std::string op_string() const = 0;
-
     Opcode op_;
     Iden name_;
     Size type_;
@@ -80,9 +117,6 @@ class MathInst : public Inst
 {
 public:
     explicit MathInst(Iden name, Opcode op, Inst* lhs, Inst* rhs) : Inst{ op, name, { lhs, rhs }, Size::Int32 } {}
-
-private:
-    std::string op_string() const override;
 };
 
 class ConstInst : public Inst
@@ -95,24 +129,22 @@ public:
 
     int64_t value() { return value_; }
 
-private:
-    std::string op_string() const override;
+    std::string to_string() const override;
 
+private:
     int64_t value_;
 };
 
 class Phi : public Inst
 {
 public:
-    explicit Phi(Iden name, Iden shadow_id) : Inst{ Opcode::Phi, name, {}, Size::Void }, shadow_{ shadow_id } {}
+    explicit Phi(Iden name, Iden shadow_id) : Inst{ Opcode::Phi, name, {}, Size::Int32 }, shadow_{ shadow_id } {}
 
     Iden shadow() { return shadow_; }
 
     void append_operand(Inst* operand) { args_.emplace_back(operand); }
 
 private:
-    std::string op_string() const override;
-
     Iden shadow_;
 };
 
@@ -128,8 +160,6 @@ public:
     Iden shadow() { return shadow_; }
 
 private:
-    std::string op_string() const override;
-
     Iden shadow_;
 };
 
@@ -147,45 +177,30 @@ public:
               Size::Void }
     {
     }
-
-private:
-    std::string op_string() const override;
 };
 
 class Jump : public Inst
 {
 public:
     explicit Jump(Iden name) : Inst{ Opcode::Jump, name, {}, Size::Void } {}
-
-private:
-    std::string op_string() const override;
 };
 
 class JumpIf : public Inst
 {
 public:
     explicit JumpIf(Iden name, Inst* cond) : Inst{ Opcode::Jump, name, { cond }, Size::Void } {}
-
-private:
-    std::string op_string() const override;
 };
 
 class Set : public Inst
 {
 public:
     explicit Set(Iden name, Inst* value) : Inst{ Opcode::Set, name, { value }, value->type() } {}
-
-private:
-    std::string op_string() const override;
 };
 
 class Unary : public Inst
 {
 public:
     explicit Unary(Iden name, Opcode op, Inst* arg) : Inst{ op, name, { arg }, Size::Int32 } {}
-
-private:
-    std::string op_string() const override;
 };
 
 } // namespace compiler::codegen
