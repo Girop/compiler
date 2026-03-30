@@ -29,13 +29,20 @@ void Driver::compile()
     analyze(*tu);
     if (!success()) return;
 
-    Codegen codegen{ *tu };
+    codegen::Codegen codegen{ *tu };
+    codegen.run();
     if (flags_.ssa)
     {
-        auto ssa = codegen.ssa();
-        // TODO
-        ssa[0].dump();
+        for (auto& cfg : codegen.ssa())
+        {
+            cfg.dumpCFG();
+        }
     }
+    if (flags_.compile)
+    {
+        codegen.assembly(std::cout);
+    }
+     
 }
 
 void Driver::analyze(ast::TranslationUnit& tu) { tu.check(sema_); }

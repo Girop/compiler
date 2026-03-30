@@ -1,5 +1,4 @@
 
-
 int main()
 {
     int a;
@@ -8,8 +7,8 @@ int main()
     if (a / 8 == 2)
     {
         a = a * 2;
-    } 
-    else 
+    }
+    else
     {
         a = a + 3;
     }

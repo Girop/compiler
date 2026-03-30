@@ -25,6 +25,7 @@ enum class Opcode : uint8_t
     Set,
     Cmp,
     LogicalNegate,
+    Label,
 };
 
 constexpr std::string_view op_string(Opcode op)
@@ -44,6 +45,7 @@ constexpr std::string_view op_string(Opcode op)
     case Opcode::Set: return "Set";
     case Opcode::Cmp: return "Cmp";
     case Opcode::LogicalNegate: return "LogicalNegate";
+    case Opcode::Label: return "Label";
     case Opcode::Nop: return "Nop";
     }
     return "<Unknown>";
@@ -92,7 +94,7 @@ public:
         std::vector<Inst*> new_args;
         for (auto* item : args_)
         {
-            if (item == replaced) 
+            if (item == replaced)
             {
                 new_args.emplace_back(with);
                 continue;
@@ -179,16 +181,42 @@ public:
     }
 };
 
+class Label : public Inst
+{
+public:
+    explicit Label(Iden name) : Inst{ Opcode::Label, name } {}
+
+    void set(std::string_view sv)
+    {
+        assert(label_.empty());
+        label_ = sv;
+    }
+
+private:
+    std::string label_;
+};
+
 class Jump : public Inst
 {
 public:
     explicit Jump(Iden name) : Inst{ Opcode::Jump, name, {}, Size::Void } {}
+
+    void label(Label* label)
+    {
+        args_.emplace_back(label);
+    }
 };
 
 class JumpIf : public Inst
 {
 public:
-    explicit JumpIf(Iden name, Inst* cond) : Inst{ Opcode::Jump, name, { cond }, Size::Void } {}
+    explicit JumpIf(Iden name, Inst* cond) : Inst{ Opcode::JumpIf, name, { cond }, Size::Void } {}
+
+    void labels(Label* on_true, Label* on_false)
+    {
+        args_.emplace_back(on_true);
+        args_.emplace_back(on_false);
+    }
 };
 
 class Set : public Inst
@@ -202,5 +230,6 @@ class Unary : public Inst
 public:
     explicit Unary(Iden name, Opcode op, Inst* arg) : Inst{ op, name, { arg }, Size::Int32 } {}
 };
+
 
 } // namespace compiler::codegen

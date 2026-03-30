@@ -4,9 +4,58 @@
 #include <cassert>
 #include <fstream>
 #include <optional>
+#include <unordered_map>
+#include <unordered_set>
 
 namespace compiler::codegen
 {
+
+namespace
+{
+
+Block* _impl_find_unfilled(Block* to_be_filled, std::unordered_set<Block*>& visited)
+{
+    visited.insert(to_be_filled);
+
+    for (auto* suc : to_be_filled->successors())
+    {
+        if (!suc->is_filled()) return suc;
+    }
+
+    for (auto* pred : to_be_filled->predecessors())
+    {
+        if (!visited.contains(pred))
+        {
+            Block* candidate = _impl_find_unfilled(pred, visited);
+            if (candidate != nullptr)
+            {
+                return candidate;
+            }
+        }
+    }
+    return nullptr;
+}
+
+Block* find_unfilled(Block* to_be_filled)
+{
+    std::unordered_set<Block*> visited;
+    return _impl_find_unfilled(to_be_filled, visited);
+}
+
+std::optional<Opcode> math_op(tokens::Punctuator punct)
+{
+    switch (punct)
+    {
+    case tokens::Punctuator::Plus: return Opcode::Add;
+    case tokens::Punctuator::Minus: return Opcode::Sub;
+    case tokens::Punctuator::Slash: return Opcode::Div;
+    case tokens::Punctuator::Star: return Opcode::Mul;
+    case tokens::Punctuator::EqualEqual: return Opcode::Cmp;
+    default: return std::nullopt;
+    }
+}
+
+} // namespace
 
 class NameCounter
 {
@@ -17,6 +66,16 @@ private:
     size_t counter_{ 0 };
 };
 
+// Problem description:
+//  In current way of doing things we have 2 major problems:
+//  we are at the same time consuming AST nodes and producing Blocks
+//  but also jumping around the blocks in a semi-random order.
+//  It is hard to say which (and when) blocks need sealing.
+//
+//  It could be nicer to gather all AST nodes until new Blocks needs to be
+//  c, say if it can be sealed
+//  straight away and then process the collected stuff.
+
 class SSAGenerator
 {
 public:
@@ -24,18 +83,40 @@ public:
 
     CFG construct()
     {
-        auto starting = cfg.insert();
-        Block* last = on_items(starting, func_.body().items());
-        if (!last->sealed) seal(last); //
+        auto starting = insert_node();
+        on_items(starting, func_.body().items());
+        split_critical_edges();
+
         return std::move(cfg);
     }
 
 private:
+    Block* insert_node()
+    {
+        auto b = cfg.insert();
+        emit<Label>(b); // placeholder until the label resolution phase happens
+        return b;
+    }
+
+    void split_critical_edges()
+    {
+        for (auto& block : cfg.blocks())
+        {
+            if (block->predecessors().size() < 2) continue;
+            for (auto& pred : block->predecessors())
+            {
+                if (pred->successors().size() >= 2)
+                {
+                    block->split_edge(pred, insert_node());
+                }
+            }
+        }
+    }
+
     template <typename T, typename... Args> Inst* emit(Block* block, Args&&... args)
     {
-        assert(!block->filled);
-        auto& inst = block->ins.emplace_back(std::make_unique<T>(names_.get(), std::forward<Args>(args)...));
-        return inst.get();
+        assert(!block->is_filled());
+        return block->insert(std::make_unique<T>(names_.get(), std::forward<Args>(args)...));
     }
 
     Block* on_items(Block* block, ast::Items const& items)
@@ -62,11 +143,11 @@ private:
 
     Block* on_if_branch(Block* parent, ast::Stmt const* stmt)
     {
-        auto suc = cfg.insert();
-        cfg.add_successor(parent, suc);
+        auto suc = insert_node();
+        parent->add_successor(suc);
         Block* child = stmt ? on_stmt(suc, *stmt) : suc;
         seal(child);
-        child->filled = true;
+        child->fill();
         return child;
     }
 
@@ -75,14 +156,14 @@ private:
         seal(block);
         auto cond = on_expr(block, ifstmt.cond());
         emit<JumpIf>(block, cond);
-        block->filled = true;
+        block->fill();
 
         Block* lhs = on_if_branch(block, &ifstmt.cons());
         Block* rhs = on_if_branch(block, ifstmt.alt());
 
-        auto exit = cfg.insert();
-        cfg.add_successor(lhs, exit);
-        cfg.add_successor(rhs, exit);
+        auto exit = insert_node();
+        lhs->add_successor(exit);
+        rhs->add_successor(exit);
 
         return exit;
     }
@@ -123,8 +204,8 @@ private:
             retval = on_expr(block, *ret->expr());
         }
         emit<Ret>(block, retval);
-        block->filled = true;
-        return block;
+        block->fill();
+        return find_unfilled(block);
     }
 
     Inst* on_expr(Block* block, ast::Expr const& expr)
@@ -176,19 +257,6 @@ private:
         return value;
     }
 
-    std::optional<Opcode> math_op(tokens::Punctuator punct) const
-    {
-        switch (punct)
-        {
-        case tokens::Punctuator::Plus: return Opcode::Add;
-        case tokens::Punctuator::Minus: return Opcode::Sub;
-        case tokens::Punctuator::Slash: return Opcode::Div;
-        case tokens::Punctuator::Star: return Opcode::Mul;
-        case tokens::Punctuator::EqualEqual: return Opcode::Cmp;
-        default: return std::nullopt;
-        }
-    }
-
     void on_decl(Block* block, ast::ObjDecl const& decl)
     {
         if (decl.initalizer() == nullptr) return;
@@ -210,16 +278,16 @@ private:
     Inst* read_var_recursive(ast::ObjDecl const* var, Block* block)
     {
         Inst* value;
-        if (!block->sealed)
+        if (!block->is_sealed())
         {
             auto shadow_var = names_.get();
             auto phi = emit<Phi>(block, shadow_var);
             incomplete_phis[block][var] = phi->as<Phi>();
             value = phi;
         }
-        else if (cfg.predecessors(block).size() == 1)
+        else if (block->predecessors().size() == 1)
         {
-            value = read_variable(var, cfg.predecessors(block)[0]);
+            value = read_variable(var, block->predecessors().front());
         }
         else
         {
@@ -236,7 +304,7 @@ private:
 
     Inst* add_phi_operands(Block* block, ast::ObjDecl const* var, Phi* phi)
     {
-        for (Block* pred : cfg.predecessors(block))
+        for (Block* pred : block->predecessors())
         {
             phi->append_operand(read_variable(var, pred));
         }
@@ -270,18 +338,14 @@ private:
 
     void seal(Block* block)
     {
-        assert(!block->sealed);
         for (auto [var, phi] : incomplete_phis[block])
         {
             add_phi_operands(block, var, phi);
         }
-        block->sealed = true;
+        block->seal();
     }
 
-    void invalidate(Inst* inst)
-    {
-        inst->op() = Opcode::Nop;
-    }
+    void invalidate(Inst* inst) { inst->op() = Opcode::Nop; }
 
     void replace(Inst* replaced, Inst* with)
     {
@@ -299,12 +363,12 @@ private:
     std::unordered_map<ast::ObjDecl const*, std::unordered_map<Block*, Inst*>> current_defs;
 };
 
-std::vector<Inst*> CFG::users(Inst* inst)
+std::vector<Inst*> CFG::users(Inst* inst) const
 {
     std::vector<Inst*> users;
     for (auto& bb : blocks_)
     {
-        for (auto& ins : bb->ins)
+        for (auto& ins : bb->ins())
         {
             auto it = std::find(ins->args().begin(), ins->args().end(), inst);
             if (it != ins->args().end())
@@ -316,19 +380,71 @@ std::vector<Inst*> CFG::users(Inst* inst)
     return users;
 }
 
+void CFG::add_labels()
+{
+    auto label_inst = [&](Block* successor) { return successor->ins().front()->as<Label>(); };
+    for (auto& block : blocks_)
+    {
+        for (auto& ins : block->ins())
+        {
+            if (ins->op() == Opcode::Jump)
+            {
+                ins->as<Jump>()->label(label_inst(block->successors().front()));
+                continue;
+            }
+
+            if (ins->op() == Opcode::JumpIf)
+            {
+                ins->as<JumpIf>()->labels(label_inst(block->successors()[0]), label_inst(block->successors()[1]));
+                continue;
+            }
+        }
+    }
+
+    size_t lbl_idx{};
+    for (auto& block : blocks_)
+    {
+        auto& lbl = block->ins().front();
+        assert(lbl->op() == Opcode::Label);
+        if (users(lbl.get()).size() != 0)
+        {
+            lbl->as<Label>()->set(std::format(".L{}", ++lbl_idx));
+        }
+        else
+        {
+            lbl->op() = Opcode::Nop;
+        }
+    }
+}
+
+void CFG::phi_resolution()
+{
+    
+}
+
 CFG CFG::construct(ast::FunctionDecl const& func)
 {
     SSAGenerator gen(func);
     return gen.construct();
 }
 
-CFG::~CFG()
+// Put blocks and jumps somehow on a single tape
+std::vector<Inst*> CFG::lower()
 {
-    assert(std::all_of(blocks_.begin(), blocks_.end(), [](auto& b) { return b->filled; }));
-    assert(std::all_of(blocks_.begin(), blocks_.end(), [](auto& b) { return b->sealed; }));
+    std::vector<Inst*> tape;
+
+
+    return tape;
 }
 
-void CFG::dump() const
+
+CFG::~CFG()
+{
+    assert(std::all_of(blocks_.begin(), blocks_.end(), [](auto& b) { return b->is_filled(); }));
+    assert(std::all_of(blocks_.begin(), blocks_.end(), [](auto& b) { return b->is_sealed(); }));
+}
+
+void CFG::dumpCFG() const
 {
     auto filename = std::format(".cfg.{}.dot", name_);
     std::ofstream file(filename, std::ios::out);

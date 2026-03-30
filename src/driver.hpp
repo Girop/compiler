@@ -11,8 +11,10 @@ struct Flags
     bool lex{ false };
     bool parse{ false };
     bool ssa{ false };
+    bool compile {true};
 };
 
+// TODO redesign (design lol!)
 class Driver
 {
 public:

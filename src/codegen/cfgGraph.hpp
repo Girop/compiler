@@ -29,7 +29,7 @@ public:
         for (auto& bb : data_.blocks_)
         {
             size_t from = get_idx(bb.get());
-            for (auto& succ : bb->successors)
+            for (auto& succ : bb->successors())
             {
                 size_t to = get_idx(succ);
                 edges.emplace_back(from, to);
@@ -47,7 +47,7 @@ public:
         for (auto& bb : data_.blocks_)
         {
             std::string label;
-            for (auto& ins : bb->ins)
+            for (auto& ins : bb->ins())
             {
                 if (ins->op() == codegen::Opcode::Nop) continue;
                 label += ins->to_string();

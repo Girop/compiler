@@ -16,14 +16,19 @@ compiler::Flags parse(int argc, char** argv)
             flags.lex = true;
             continue;
         }
-        if (arg == "--parse")
-        {
+        if (arg == "--parse") {
             flags.parse = true;
             continue;
         }
         if (arg == "--ssa")
         {
             flags.ssa = true;
+            continue;
+        }
+
+        if (arg == "--compile")
+        {
+            flags.compile = true;
             continue;
         }
     }
@@ -42,7 +47,7 @@ int main(int argc, char* argv[])
 
     compiler::Driver driver{ flags };
     driver.compile();
-    
+
     if (!driver.success())
     {
         std::cerr << "Compilation failed!\n";

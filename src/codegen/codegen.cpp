@@ -1,19 +1,25 @@
 #include "codegen.hpp"
+#include "codegen/x86_64.hpp"
+#include <sstream>
 
-namespace compiler
+namespace compiler::codegen
 {
 
-std::vector<codegen::CFG> Codegen::ssa()
+void Codegen::run()
 {
-    std::vector<codegen::CFG> cfgs;
     for (auto& func : tu_.items()->items())
     {
         auto d = func->decl();
         assert(d);
         auto* f = dynamic_cast<ast::FunctionDecl const*>(d);
         assert(f);
-        cfgs.emplace_back(codegen::CFG::construct(*f));
+        auto& cfg = cfgs_.emplace_back(codegen::CFG::construct(*f));
+        cfg.add_labels();
     }
-    return cfgs;
+
+    std::stringstream ss;
+    x64::Emitter backend{ cfgs_.at(0), ss };
+    asm_ = ss.str();
 }
-} // namespace compiler
+
+} // namespace compiler::codegen
