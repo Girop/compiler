@@ -58,6 +58,8 @@ private:
     std::vector<std::unique_ptr<Inst>> ins_;
 };
 
+// This one is supposed to have no knowledge of SSA itself and 
+// tts operations
 class CFG
 {
     friend cfg::GraphAdapter;
@@ -77,22 +79,20 @@ public:
     std::string_view name() const { return name_; }
     std::vector<std::unique_ptr<Block>> const& blocks() const { return blocks_; }
 
-    std::vector<Inst*> lower();
+    Block* add_block()
+    {
+        return blocks_.emplace_back(std::make_unique<Block>()).get();
+    }
 
     // TODO this is in fact the 2nd type of IR, already lowered one 
     // a) it should be more distinct aka. maybe a separete class wrapper on lowering operations? 
     // b) This 2nd IR should already have notion of the memory storage 
     // c) refactor of CFG construction will be needed as hell
     void add_labels();
-    void phi_resolution();
 
     void dumpCFG() const;
 
 private:
-    Block* insert() 
-    {
-        return blocks_.emplace_back(std::make_unique<Block>()).get();
-    }
     std::vector<Inst*> users(Inst* inst) const;
 
     std::string_view name_;

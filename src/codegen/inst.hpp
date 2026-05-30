@@ -188,9 +188,11 @@ public:
 
     void set(std::string_view sv)
     {
-        assert(label_.empty());
+        assert(hidden());
         label_ = sv;
     }
+
+    bool hidden() const { return label_.empty(); }
 
 private:
     std::string label_;
@@ -201,10 +203,7 @@ class Jump : public Inst
 public:
     explicit Jump(Iden name) : Inst{ Opcode::Jump, name, {}, Size::Void } {}
 
-    void label(Label* label)
-    {
-        args_.emplace_back(label);
-    }
+    void label(Label* label) { args_.emplace_back(label); }
 };
 
 class JumpIf : public Inst
@@ -230,6 +229,5 @@ class Unary : public Inst
 public:
     explicit Unary(Iden name, Opcode op, Inst* arg) : Inst{ op, name, { arg }, Size::Int32 } {}
 };
-
 
 } // namespace compiler::codegen

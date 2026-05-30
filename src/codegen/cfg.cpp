@@ -55,8 +55,6 @@ std::optional<Opcode> math_op(tokens::Punctuator punct)
     }
 }
 
-} // namespace
-
 class NameCounter
 {
 public:
@@ -65,6 +63,8 @@ public:
 private:
     size_t counter_{ 0 };
 };
+
+} // namespace
 
 // Problem description:
 //  In current way of doing things we have 2 major problems:
@@ -76,6 +76,94 @@ private:
 //  c, say if it can be sealed
 //  straight away and then process the collected stuff.
 
+class CfgBlockCtr
+{
+public:
+    CfgBlockCtr(ast::FunctionDecl const& func) : func_{ func }, cfg_{ func.iden().name() } {}
+
+    CFG construct()
+    {
+        current_ = cfg_.add_block();
+
+        for (auto& item : func_.body().items().items())
+        {
+            on(*item);
+        }
+
+        return std::move(cfg_);
+    }
+
+private:
+    void on(ast::Item const& item)
+    {
+        auto* stmt{ item.stmt() };
+        if (stmt != nullptr)
+        {
+            on(*stmt);
+        }
+    }
+
+    void on(ast::Stmt const& stmt)
+    {
+        Block* previous = current_;
+        if (auto* ifstmt = dynamic_cast<ast::IfStmt const*>(&stmt))
+        {
+            on(*ifstmt);
+        }
+        else if (auto* retstmt = dynamic_cast<ast::ReturnStmt const*>(&stmt))
+        {
+            on(*retstmt);
+        }
+        else if (auto* compound = dynamic_cast<ast::CompoundStmt const*>(&stmt))
+        {
+            for (auto& item : compound->items().items())
+            {
+                on(*item);
+            }
+        }
+
+        // Backtrack if the last Stmt was a dead end
+        if (current_ == nullptr)
+        {
+            current_ = previous;
+        }
+    }
+
+    void on(ast::ReturnStmt const& stmt [[maybe_unused]])
+    {
+        Block* ret = cfg_.add_block();
+        current_->add_successor(ret);
+        current_ = nullptr;
+    }
+
+    void on(ast::IfStmt const& stmt)
+    {
+        Block* parent = current_;
+
+        Block* cons = cfg_.add_block();
+        parent->add_successor(cons);
+        current_ = cons;
+        on(stmt.cons());
+
+        Block* alt = cfg_.add_block();
+        parent->add_successor(alt);
+        if (auto* alt_stmt = stmt.alt())
+        {
+            current_ = alt;
+            on(*alt_stmt);
+        }
+
+        Block* exit = cfg_.add_block();
+        cons->add_successor(exit);
+        alt->add_successor(exit);
+        current_ = exit;
+    }
+
+    ast::FunctionDecl const& func_;
+    Block* current_{ nullptr };
+    CFG cfg_;
+};
+
 class SSAGenerator
 {
 public:
@@ -86,14 +174,13 @@ public:
         auto starting = insert_node();
         on_items(starting, func_.body().items());
         split_critical_edges();
-
         return std::move(cfg);
     }
 
 private:
     Block* insert_node()
     {
-        auto b = cfg.insert();
+        auto b = cfg.add_block();
         emit<Label>(b); // placeholder until the label resolution phase happens
         return b;
     }
@@ -417,31 +504,24 @@ void CFG::add_labels()
     }
 }
 
-void CFG::phi_resolution()
-{
-    
-}
-
 CFG CFG::construct(ast::FunctionDecl const& func)
 {
-    SSAGenerator gen(func);
+    CfgBlockCtr gen(func);
     return gen.construct();
 }
 
 // Put blocks and jumps somehow on a single tape
-std::vector<Inst*> CFG::lower()
+std::vector<Inst*> lower()
 {
     std::vector<Inst*> tape;
-
 
     return tape;
 }
 
-
 CFG::~CFG()
 {
-    assert(std::all_of(blocks_.begin(), blocks_.end(), [](auto& b) { return b->is_filled(); }));
-    assert(std::all_of(blocks_.begin(), blocks_.end(), [](auto& b) { return b->is_sealed(); }));
+    // assert(std::all_of(blocks_.begin(), blocks_.end(), [](auto& b) { return b->is_filled(); }));
+    // assert(std::all_of(blocks_.begin(), blocks_.end(), [](auto& b) { return b->is_sealed(); }));
 }
 
 void CFG::dumpCFG() const

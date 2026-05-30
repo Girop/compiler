@@ -13,8 +13,8 @@ void Codegen::run()
         assert(d);
         auto* f = dynamic_cast<ast::FunctionDecl const*>(d);
         assert(f);
-        auto& cfg = cfgs_.emplace_back(codegen::CFG::construct(*f));
-        cfg.add_labels();
+         cfgs_.emplace_back(codegen::CFG::construct(*f));
+        // cfg.add_labels();
     }
 
     std::stringstream ss;

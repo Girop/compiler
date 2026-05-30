@@ -11,6 +11,11 @@ int main()
     else
     {
         a = a + 3;
+
+        if (a == 2) 
+        {
+            return 10;
+        }
     }
 
     return a;
