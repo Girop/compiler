@@ -21,6 +21,8 @@ constexpr std::string to_string(Tag tag)
             return "<punctuator>";
         case Tag::EoF:
             return "<EoF>";
+        case Tag::Error:
+            return "<Error>";
         }
     return "<unkown>";
 }

@@ -61,7 +61,7 @@ std::pair<int8_t, int8_t> Parser::binding_power(tokens::Punctuator punct) const
 
 ast::Ptr<ast::TranslationUnit> Parser::parse()
 {
-    return std::make_unique<ast::TranslationUnit>(lexer_.loc().filename(), items());
+    return mk<ast::TranslationUnit>(lexer_.loc().filename(), items());
 }
 
 bool Parser::is_type_keyword(tokens::Keyword k) const
@@ -145,7 +145,7 @@ ast::Ptr<ast::TypeDecl> Parser::type()
     auto strg = storage(specifiers);
 
     Type typ{ loc, std::move(specifiers) };
-    return std::make_unique<ast::TypeDecl>(loc, sema_.new_type(typ), strg);
+    return mk<ast::TypeDecl>(loc, sema_.new_type(typ), strg);
 }
 
 ast::Ptr<ast::Declaration> Parser::declaration()
@@ -165,13 +165,13 @@ ast::Ptr<ast::Declaration> Parser::declaration()
         std::vector<ast::Ptr<ast::ObjDecl>> args;
         expect(tokens::Punctuator::RParen);
         auto compound = compound_stmt();
-        return std::make_unique<ast::FunctionDecl>(loc, std::move(ret_t), std::move(iden), std::move(args),
+        return mk<ast::FunctionDecl>(loc, std::move(ret_t), std::move(iden), std::move(args),
                                                    std::move(compound));
     }
 
     ast::Ptr<ast::Expr> initalizer{ match_consume(tokens::Punctuator::Equal) ? expr() : nullptr };
     expect(tokens::Punctuator::Semicolon);
-    return std::make_unique<ast::ObjDecl>(loc, std::move(ret_t), std::move(iden), std::move(initalizer));
+    return mk<ast::ObjDecl>(loc, std::move(ret_t), std::move(iden), std::move(initalizer));
 }
 
 ast::Ptr<ast::Iden> Parser::identifier()
@@ -182,7 +182,7 @@ ast::Ptr<ast::Iden> Parser::identifier()
         token.loc.err() << "Expected identifier, found: " << token.format();
         return nullptr;
     }
-    return std::make_unique<ast::Iden>(token.loc, std::get<std::string>(token.value));
+    return ast::mk<ast::Iden>(token.loc, std::get<std::string>(token.value));
 }
 
 ast::Ptr<ast::Stmt> Parser::selection_statement()
@@ -194,7 +194,7 @@ ast::Ptr<ast::Stmt> Parser::selection_statement()
     expect(tokens::Punctuator::RParen);
     auto cons = statement();
     auto alt = match_consume(tokens::Keyword::Else) ? statement() : nullptr;
-    return std::make_unique<ast::IfStmt>(tok.loc, std::move(cond), std::move(cons), std::move(alt));
+    return mk<ast::IfStmt>(tok.loc, std::move(cond), std::move(cons), std::move(alt));
 }
 
 ast::Ptr<ast::Stmt> Parser::statement()
@@ -218,19 +218,19 @@ ast::Ptr<ast::Stmt> Parser::statement()
 
     if (match_consume(tokens::Punctuator::Semicolon))
     {
-        return std::make_unique<ast::NullStmt>(tok.loc);
+        return ast::mk<ast::NullStmt>(tok.loc);
     }
 
     if (match_consume(tokens::Keyword::Return))
     {
         ast::Ptr<ast::Expr> ret_val{ match(tokens::Punctuator::Semicolon) ? nullptr : expr() };
         expect(tokens::Punctuator::Semicolon);
-        return std::make_unique<ast::ReturnStmt>(tok.loc, std::move(ret_val));
+        return mk<ast::ReturnStmt>(tok.loc, std::move(ret_val));
     }
 
     auto exp = expr();
     expect(tokens::Punctuator::Semicolon);
-    return std::make_unique<ast::ExprStmt>(tok.loc, std::move(exp));
+    return mk<ast::ExprStmt>(tok.loc, std::move(exp));
 }
 
 ast::Ptr<ast::Items> Parser::items()
@@ -241,9 +241,9 @@ ast::Ptr<ast::Items> Parser::items()
         auto const tok = lexer_.peek();
         if (auto k = std::get_if<tokens::Keyword>(&tok.value); k != nullptr && is_type_keyword(*k))
         {
-            return std::make_unique<ast::Item>(declaration());
+            return mk<ast::Item>(declaration());
         }
-        return std::make_unique<ast::Item>(statement());
+        return mk<ast::Item>(statement());
     };
 
     std::vector<ast::Ptr<ast::Item>> items;
@@ -252,7 +252,7 @@ ast::Ptr<ast::Items> Parser::items()
         items.emplace_back(get_item());
     }
 
-    return std::make_unique<ast::Items>(loc, std::move(items));
+    return mk<ast::Items>(loc, std::move(items));
 }
 
 ast::Ptr<ast::CompoundStmt> Parser::compound_stmt()
@@ -261,14 +261,14 @@ ast::Ptr<ast::CompoundStmt> Parser::compound_stmt()
     expect(tokens::Punctuator::LBrace);
     auto its = items();
     expect(tokens::Punctuator::RBrace);
-    return std::make_unique<ast::CompoundStmt>(loc, std::move(its));
+    return mk<ast::CompoundStmt>(loc, std::move(its));
 }
 
 ast::Ptr<ast::IntLiteral> Parser::constant()
 {
     auto const tok = lexer_.advance();
     assert(tok.tag == tokens::Tag::Constant);
-    return std::make_unique<ast::IntLiteral>(tok.loc, std::get<int64_t>(tok.value));
+    return ast::mk<ast::IntLiteral>(tok.loc, std::get<int64_t>(tok.value));
 }
 
 ast::Ptr<ast::Expr> Parser::unary_expr()
@@ -290,7 +290,7 @@ ast::Ptr<ast::Expr> Parser::unary_expr()
         if (auto bp = prefix_binding_power(p); bp != -1)
         {
             lexer_.advance();
-            return std::make_unique<ast::UnaryExpr>(atom.loc, p, expr(bp));
+            return mk<ast::UnaryExpr>(atom.loc, p, expr(bp));
         }
     }
         [[fallthrough]];
@@ -310,7 +310,7 @@ ast::Ptr<ast::Expr> Parser::expr(int8_t min_bp)
         lexer_.advance();
         auto const loc = lhs->loc();
         auto rhs = expr(rbp);
-        lhs = std::make_unique<ast::BinExpr>(loc, std::move(lhs), op, std::move(rhs));
+        lhs = mk<ast::BinExpr>(loc, std::move(lhs), op, std::move(rhs));
     }
     return lhs;
 }

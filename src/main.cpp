@@ -45,7 +45,8 @@ int main(int argc, char* argv[])
         exit(1);
     }
 
-    compiler::Driver driver{ flags };
+    auto const file = compiler::File::read(flags.filename);
+    compiler::Driver driver{ flags, file};
     driver.compile();
 
     if (!driver.success())

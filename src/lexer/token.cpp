@@ -29,6 +29,8 @@ std::string Token::format() const
             return const_to_string(value);
         case Tag::EoF:
             return "<EoF>";
+        case Tag::Error:
+            return "<Error>";
         }
     return "<unknown>";
 }

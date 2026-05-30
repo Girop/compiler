@@ -1,9 +1,17 @@
 #pragma once
-#include <cstddef>
 #include <iostream>
 
 namespace compiler
 {
+
+struct Position
+{
+    int32_t line{ 1 };
+    int32_t column{ 1 };
+
+    bool operator==(Position const& rhs) const = default;
+    void advance(char c);
+};
 
 class Loc
 {
@@ -42,9 +50,11 @@ class Loc
     };
 
 public:
+    Loc() = default;
     explicit Loc(std::string_view filename) : filename_{ filename } {}
+    Loc(std::string_view filename, int32_t line, int32_t col) : filename_{ filename }, position_{ line, col } {}
 
-    Loc(std::string_view filename, size_t row, size_t col) : filename_{ filename }, row_{ row }, column_{ col } {}
+    bool operator==(Loc const& rhs) const { return filename_ == rhs.filename_ && position_ == rhs.position_; }
 
     static bool has_error() { return error_occured; }
 
@@ -54,12 +64,13 @@ public:
     Err err() const { return Err{ *this }; }
     Wrn wrn() const { return Wrn{ *this }; }
 
-    void advance(char c);
+    void advance(char c) { position_.advance(c); }
+
+    Position pos() const { return position_; }
 
 private:
-    std::string_view filename_;
-    size_t row_{ 1 };
-    size_t column_{ 1 };
+    std::string_view filename_{ "UNKNOWN FILE" };
+    Position position_;
 };
 
 } // namespace compiler

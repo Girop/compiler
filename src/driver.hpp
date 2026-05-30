@@ -11,14 +11,14 @@ struct Flags
     bool lex{ false };
     bool parse{ false };
     bool ssa{ false };
-    bool compile {true};
+    bool compile{ true };
 };
 
 // TODO redesign (design lol!)
 class Driver
 {
 public:
-    explicit Driver(Flags const& flag) : flags_{ flag }, file_{ flag.filename }, parser_{ file_, sema_ } {}
+    explicit Driver(Flags const& flag, File const& file) : flags_{ flag }, file_{ file }, parser_{ file_, sema_ } {}
 
     void compile();
     bool success() const;

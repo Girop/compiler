@@ -6,7 +6,7 @@ namespace compiler
     
 struct File 
 {
-    explicit File(std::filesystem::path const& path);
+    static File read(std::filesystem::path const& path);
 
     std::string name;
     std::string content;

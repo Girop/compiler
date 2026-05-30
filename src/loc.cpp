@@ -4,22 +4,19 @@
 namespace compiler
 {
 
-std::string Loc::format() const 
-{
-    return std::format("{}:{}:{}", filename_, row_, column_);
-}
+std::string Loc::format() const { return std::format("{}:{}:{}", filename_, position_.line, position_.column); }
 
-
-void Loc::advance(char c)
+void Position::advance(char c)
 {
     if (c == '\n')
     {
-        ++row_;
-        column_ = 1;
-        return;
-    } 
-
-    ++column_;
+        ++line;
+        column = 1;
+    }
+    else
+    {
+        ++column;
+    }
 }
 
-}
+} // namespace compiler

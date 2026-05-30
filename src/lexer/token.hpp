@@ -15,6 +15,7 @@ enum class Tag : uint8_t
     StringLiteral,
     Punctuator,
     EoF,
+    Error,
 };
 
 enum class Keyword : uint8_t
@@ -116,6 +117,8 @@ struct Token
     Tag tag;
     Value value;
     Loc loc;
+
+    bool operator==(Token const& rhs) const = default ;
 
     std::string format() const;
     std::string specific_format() const;
